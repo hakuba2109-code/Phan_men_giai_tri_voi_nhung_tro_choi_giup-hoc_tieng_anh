@@ -1,0 +1,22 @@
+{
+  "name": "toeic-tro-choi",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Chạy npm ở thư mục gốc: các script chuyển tiếp sang json/ (nơi khai báo phụ thuộc).",
+  "scripts": {
+    "start": "npm --prefix json start",
+    "dev": "npm --prefix json run dev",
+    "build": "npm --prefix json run build",
+    "setup": "npm --prefix json run setup",
+    "ingest": "npm --prefix json run ingest",
+    "test": "npm --prefix json test",
+    "verify": "npm --prefix json run verify",
+    "test:dungeon-api": "npm --prefix json run test:dungeon-api",
+    "test:island-api": "npm --prefix json run test:island-api",
+    "test:lookup-api": "npm --prefix json run test:lookup-api",
+    "test:xu-api": "npm --prefix json run test:xu-api",
+    "test:wallet": "npm --prefix json run test:wallet",
+    "xu:sim": "npm --prefix json run xu:sim",
+    "xu:sim:real": "npm --prefix json run xu:sim:real"
+  }
+}

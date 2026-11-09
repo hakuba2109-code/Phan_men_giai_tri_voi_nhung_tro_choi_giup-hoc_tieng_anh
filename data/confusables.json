@@ -1,0 +1,168 @@
+{
+  "version": 1,
+  "groups": [
+    {
+      "id": "affect-effect",
+      "words": [
+        { "w": "affect", "forms": ["affects", "affected", "affecting"], "pos": "động từ", "vi": "tác động đến, ảnh hưởng đến" },
+        { "w": "effect", "forms": ["effects"], "pos": "danh từ", "vi": "hiệu quả, kết quả, ảnh hưởng" }
+      ],
+      "tip": "Chỗ trống cần động từ thì chọn affect; sau a/the hoặc tính từ thì chọn effect (take effect = có hiệu lực).",
+      "examples": ["The delay will affect our schedule.", "The new policy took effect on Monday."]
+    },
+    {
+      "id": "advice-advise",
+      "words": [
+        { "w": "advice", "forms": [], "pos": "danh từ (không đếm được)", "vi": "lời khuyên" },
+        { "w": "advise", "forms": ["advises", "advised", "advising"], "pos": "động từ", "vi": "khuyên, tư vấn" }
+      ],
+      "tip": "Dùng some/much advice; cấu trúc advise someone to do something.",
+      "examples": ["She gave me some useful advice.", "I advise you to book early."]
+    },
+    {
+      "id": "accept-except",
+      "words": [
+        { "w": "accept", "forms": ["accepts", "accepted", "accepting"], "pos": "động từ", "vi": "chấp nhận" },
+        { "w": "except", "forms": [], "pos": "giới từ / liên từ", "vi": "ngoại trừ" }
+      ],
+      "tip": "Cụm all … except … dùng except; còn nhận lời mời/hàng hóa thì dùng accept.",
+      "examples": ["We accept credit cards.", "Everyone attended except the manager."]
+    },
+    {
+      "id": "assure-ensure-insure",
+      "words": [
+        { "w": "assure", "forms": ["assures", "assured", "assuring"], "pos": "động từ", "vi": "cam đoan với ai" },
+        { "w": "ensure", "forms": ["ensures", "ensured", "ensuring"], "pos": "động từ", "vi": "bảo đảm điều gì xảy ra" },
+        { "w": "insure", "forms": ["insures", "insured", "insuring"], "pos": "động từ", "vi": "mua bảo hiểm" }
+      ],
+      "tip": "assure + người; ensure + that/danh từ; insure + tài sản.",
+      "examples": ["I assure you the order is safe.", "Please ensure that the door is locked.", "The shipment is insured for $500."]
+    },
+    {
+      "id": "beside-besides",
+      "words": [
+        { "w": "beside", "forms": [], "pos": "giới từ", "vi": "bên cạnh" },
+        { "w": "besides", "forms": [], "pos": "trạng từ / giới từ", "vi": "ngoài ra, hơn nữa" }
+      ],
+      "tip": "Đầu câu mang nghĩa “ngoài ra” thì dùng besides; vị trí vật lý thì dùng beside.",
+      "examples": ["The copier is beside the window.", "Besides, the price includes delivery."]
+    },
+    {
+      "id": "later-latter",
+      "words": [
+        { "w": "later", "forms": [], "pos": "trạng từ / tính từ", "vi": "muộn hơn, sau đó" },
+        { "w": "latter", "forms": [], "pos": "tính từ / danh từ", "vi": "cái thứ hai trong hai cái vừa nhắc" }
+      ],
+      "tip": "the latter luôn đi cùng the former.",
+      "examples": ["The meeting starts later than usual.", "Of the two plans, the latter is cheaper."]
+    },
+    {
+      "id": "principal-principle",
+      "words": [
+        { "w": "principal", "forms": ["principals"], "pos": "tính từ / danh từ", "vi": "chính, quan trọng; hiệu trưởng" },
+        { "w": "principle", "forms": ["principles"], "pos": "danh từ", "vi": "nguyên tắc" }
+      ],
+      "tip": "principal reason (tính từ đứng trước danh từ); a matter of principle.",
+      "examples": ["The principal reason for the delay was weather.", "He refused on principle."]
+    },
+    {
+      "id": "economic-economical",
+      "words": [
+        { "w": "economic", "forms": [], "pos": "tính từ", "vi": "thuộc kinh tế" },
+        { "w": "economical", "forms": [], "pos": "tính từ", "vi": "tiết kiệm, ít tốn kém" }
+      ],
+      "tip": "economic growth (kinh tế); an economical car (tiết kiệm nhiên liệu).",
+      "examples": ["The country reported strong economic growth.", "This printer is more economical to run."]
+    },
+    {
+      "id": "considerable-considerate",
+      "words": [
+        { "w": "considerable", "forms": [], "pos": "tính từ", "vi": "đáng kể, lớn" },
+        { "w": "considerate", "forms": [], "pos": "tính từ", "vi": "ân cần, chu đáo" }
+      ],
+      "tip": "considerable amount (số lượng đáng kể); considerate of others (chu đáo với người khác).",
+      "examples": ["The project required a considerable amount of time.", "She is always considerate of her colleagues."]
+    },
+    {
+      "id": "rise-raise",
+      "words": [
+        { "w": "rise", "forms": ["rises", "rose", "risen", "rising"], "pos": "động từ (không tân ngữ)", "vi": "tăng lên, dâng lên" },
+        { "w": "raise", "forms": ["raises", "raised", "raising"], "pos": "động từ (có tân ngữ)", "vi": "nâng lên, làm tăng" }
+      ],
+      "tip": "Sau chỗ trống có tân ngữ thì chọn raise; giá cả tự tăng thì dùng rise.",
+      "examples": ["Prices rose sharply last quarter.", "The company raised its prices."]
+    },
+    {
+      "id": "lend-borrow",
+      "words": [
+        { "w": "lend", "forms": ["lends", "lent", "lending"], "pos": "động từ", "vi": "cho mượn" },
+        { "w": "borrow", "forms": ["borrows", "borrowed", "borrowing"], "pos": "động từ", "vi": "mượn" }
+      ],
+      "tip": "lend someone something; borrow something from someone.",
+      "examples": ["Could you lend me your laptop?", "I borrowed a pen from the front desk."]
+    },
+    {
+      "id": "complement-compliment",
+      "words": [
+        { "w": "complement", "forms": ["complements", "complemented", "complementing"], "pos": "động từ / danh từ", "vi": "bổ sung, phần bổ sung" },
+        { "w": "compliment", "forms": ["compliments", "complimented", "complimenting"], "pos": "động từ / danh từ", "vi": "khen, lời khen" }
+      ],
+      "tip": "complement = làm đầy đủ/hài hòa; compliment = khen ngợi.",
+      "examples": ["The wine complements the meal.", "The client complimented our service."]
+    },
+    {
+      "id": "stationary-stationery",
+      "words": [
+        { "w": "stationary", "forms": [], "pos": "tính từ", "vi": "đứng yên, không di chuyển" },
+        { "w": "stationery", "forms": [], "pos": "danh từ", "vi": "văn phòng phẩm" }
+      ],
+      "tip": "stationery có e như “envelope” — đồ văn phòng; stationary có a như “stay”.",
+      "examples": ["The vehicle remained stationary.", "We ordered pens and other stationery."]
+    },
+    {
+      "id": "personal-personnel",
+      "words": [
+        { "w": "personal", "forms": [], "pos": "tính từ", "vi": "cá nhân" },
+        { "w": "personnel", "forms": [], "pos": "danh từ", "vi": "nhân sự" }
+      ],
+      "tip": "personnel department = phòng nhân sự; personal belongings = đồ cá nhân.",
+      "examples": ["Please contact the personnel department.", "Keep your personal items in the locker."]
+    },
+    {
+      "id": "proceed-precede",
+      "words": [
+        { "w": "proceed", "forms": ["proceeds", "proceeded", "proceeding"], "pos": "động từ", "vi": "tiếp tục, tiến hành" },
+        { "w": "precede", "forms": ["precedes", "preceded", "preceding"], "pos": "động từ", "vi": "đến trước, đứng trước" }
+      ],
+      "tip": "proceed with = tiếp tục làm; precede = xảy ra/đứng trước cái khác.",
+      "examples": ["We will proceed with the meeting as planned.", "The opening speech preceded the award ceremony."]
+    },
+    {
+      "id": "lose-loose",
+      "words": [
+        { "w": "lose", "forms": ["loses", "lost", "losing"], "pos": "động từ", "vi": "mất, thua" },
+        { "w": "loose", "forms": ["looser", "loosest"], "pos": "tính từ", "vi": "lỏng, lẻo" }
+      ],
+      "tip": "lose có một chữ o (mất); loose có hai chữ o (lỏng).",
+      "examples": ["Don't lose your receipt.", "The screw is loose."]
+    },
+    {
+      "id": "quiet-quite",
+      "words": [
+        { "w": "quiet", "forms": ["quieter", "quietest"], "pos": "tính từ", "vi": "yên tĩnh" },
+        { "w": "quite", "forms": [], "pos": "trạng từ", "vi": "khá, hoàn toàn" }
+      ],
+      "tip": "quiet = yên tĩnh (tính từ); quite = khá/hoàn toàn (trạng từ đứng trước tính từ).",
+      "examples": ["The office is quiet in the morning.", "The report is quite detailed."]
+    },
+    {
+      "id": "device-devise",
+      "words": [
+        { "w": "device", "forms": ["devices"], "pos": "danh từ", "vi": "thiết bị" },
+        { "w": "devise", "forms": ["devises", "devised", "devising"], "pos": "động từ", "vi": "nghĩ ra, sáng chế" }
+      ],
+      "tip": "device là danh từ (thiết bị); devise là động từ (nghĩ ra kế hoạch).",
+      "examples": ["Turn off the device before cleaning.", "They devised a new marketing plan."]
+    }
+  ]
+}

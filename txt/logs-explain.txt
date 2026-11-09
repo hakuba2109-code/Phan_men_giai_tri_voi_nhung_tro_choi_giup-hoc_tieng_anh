@@ -1,0 +1,141 @@
+
+> toeic-tro-choi@1.0.0 ai:explain
+> node scripts/ai-explain.js --batch 15 --pause 1500
+
+◇ injected env (6) from .env // tip: ⌘ custom filepath { path: '/custom/path/.env' }
+◇ injected env (0) from .env // tip: ⌘ enable debugging { debug: true }
+Cần giải thích 629 câu · model gemini-3.5-flash-lite · lô 15 · sẽ ghi CSDL
+
+— Lô 1: câu 1–15 —
+   đã lưu 15/15 câu
+
+— Lô 2: câu 16–30 —
+   đã lưu 15/15 câu
+
+— Lô 3: câu 31–45 —
+   đã lưu 15/15 câu
+
+— Lô 4: câu 46–60 —
+   đã lưu 15/15 câu
+
+— Lô 5: câu 61–75 —
+   đã lưu 15/15 câu
+
+— Lô 6: câu 76–90 —
+   đã lưu 15/15 câu
+
+— Lô 7: câu 91–105 —
+   đã lưu 15/15 câu
+
+— Lô 8: câu 106–120 —
+   đã lưu 15/15 câu
+
+— Lô 9: câu 121–135 —
+   đã lưu 15/15 câu
+
+— Lô 10: câu 136–150 —
+   đã lưu 15/15 câu
+
+— Lô 11: câu 151–165 —
+   đã lưu 15/15 câu
+
+— Lô 12: câu 166–180 —
+   đã lưu 15/15 câu
+
+— Lô 13: câu 181–195 —
+   đã lưu 15/15 câu
+
+— Lô 14: câu 196–210 —
+   đã lưu 15/15 câu
+
+— Lô 15: câu 211–225 —
+   đã lưu 15/15 câu
+
+— Lô 16: câu 226–240 —
+   đã lưu 15/15 câu
+
+— Lô 17: câu 241–255 —
+   đã lưu 15/15 câu
+
+— Lô 18: câu 256–270 —
+   đã lưu 15/15 câu
+
+— Lô 19: câu 271–285 —
+   đã lưu 15/15 câu
+
+— Lô 20: câu 286–300 —
+   đã lưu 15/15 câu
+
+— Lô 21: câu 301–315 —
+   đã lưu 15/15 câu
+
+— Lô 22: câu 316–330 —
+   đã lưu 15/15 câu
+
+— Lô 23: câu 331–345 —
+   đã lưu 15/15 câu
+
+— Lô 24: câu 346–360 —
+   đã lưu 15/15 câu
+
+— Lô 25: câu 361–375 —
+   đã lưu 15/15 câu
+
+— Lô 26: câu 376–390 —
+   đã lưu 15/15 câu
+
+— Lô 27: câu 391–405 —
+   đã lưu 15/15 câu
+
+— Lô 28: câu 406–420 —
+   đã lưu 15/15 câu
+
+— Lô 29: câu 421–435 —
+   đã lưu 15/15 câu
+
+— Lô 30: câu 436–450 —
+   đã lưu 15/15 câu
+
+— Lô 31: câu 451–465 —
+   đã lưu 15/15 câu
+
+— Lô 32: câu 466–480 —
+   đã lưu 15/15 câu
+
+— Lô 33: câu 481–495 —
+   đã lưu 15/15 câu
+
+— Lô 34: câu 496–510 —
+   đã lưu 15/15 câu
+
+— Lô 35: câu 511–525 —
+   đã lưu 15/15 câu
+
+— Lô 36: câu 526–540 —
+   đã lưu 15/15 câu
+
+— Lô 37: câu 541–555 —
+   đã lưu 15/15 câu
+
+— Lô 38: câu 556–570 —
+   đã lưu 15/15 câu
+
+— Lô 39: câu 571–585 —
+   đã lưu 15/15 câu
+
+— Lô 40: câu 586–600 —
+   đã lưu 15/15 câu
+
+— Lô 41: câu 601–615 —
+   đã lưu 15/15 câu
+
+— Lô 42: câu 616–629 —
+   đã lưu 14/14 câu
+
+===== Tổng kết =====
+Gọi AI: 42 lượt · 277.6 giây · token vào 56763, ra 66273
+Có giải thích: 629/629 · đánh dấu disputed: 53 · đã lưu 629 câu (draft/disputed)
+Cảnh báo nhỏ 2:
+ * fs6fpe: explain quá dài, đã cắt
+ * 6rinuo: explain quá dài, đã cắt
+CSDL hiện tại: disputed 53 · draft 576 · none 19

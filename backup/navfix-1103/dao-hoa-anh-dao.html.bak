@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Đảo hoa anh đào</title>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);--bg:#fdf1f4;--card:#fffdfb;--line:#ecd3da;--ink:#34282c;--mute:#7d6a70;--brand:#d9577f;--sky1:#ffe6ef;--sky2:#cfe6ff;color-scheme:light}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#1a1424;--card:#272033;--line:#443a55;--ink:#f1e8ee;--mute:#b3a5b4;--brand:#ff8fb1;--sky1:#3b2a52;--sky2:#1b1936;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#1a1424;--card:#272033;--line:#443a55;--ink:#f1e8ee;--mute:#b3a5b4;--brand:#ff8fb1;--sky1:#3b2a52;--sky2:#1b1936;color-scheme:dark}
+*{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
+.wrap{max-width:1000px;margin:0 auto;padding:12px}
+h1{font-size:19px;margin:0 0 8px}
+.view{position:relative;height:min(66vh,580px);min-height:380px;border:1px solid var(--line);border-radius:16px;overflow:hidden;background:linear-gradient(var(--sky1),var(--sky2))}
+canvas{display:block;width:100%;height:100%;touch-action:none;cursor:grab}
+.hud{position:absolute;left:10px;right:10px;top:10px;display:flex;gap:6px;flex-wrap:wrap;pointer-events:none}
+.chip{background:var(--card);border:1px solid var(--line);border-radius:99px;padding:3px 12px;font-size:13px}
+.gbar{position:absolute;left:10px;right:10px;bottom:10px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:6px 12px;pointer-events:none}
+.bar{height:10px;background:var(--line);border-radius:9px;overflow:hidden;margin-top:4px}
+.bar i{display:block;height:100%;background:linear-gradient(90deg,#ff9fbe,var(--brand));border-radius:9px;transition:width .5s}
+.err[hidden]{display:none}
+.err{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:20px;text-align:center;background:var(--card)}
+.ctl{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px}
+button{font:inherit;color:inherit;min-height:44px;border-radius:10px;border:1px solid var(--line);background:var(--card);padding:6px 14px;cursor:pointer}
+button:focus-visible{outline:3px solid var(--brand);outline-offset:2px}
+button.pri{background:var(--brand);color:#fff;border-color:var(--brand)}
+button:disabled{opacity:.5;cursor:default}
+.card{margin-top:10px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.msg{margin-top:10px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px;min-height:46px}
+.mute{color:var(--mute);font-size:13px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:8px 12px;margin:0 0 10px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:13.5px;">
+  <span style="font-weight:700;color:var(--brand);">?? Li?n k?t nhanh:</span>
+  <a href="/choi" style="color:inherit;text-decoration:none;font-weight:600;padding:4px 10px;border-radius:8px;border:1px solid var(--line);background:var(--bg);">?? Game TOEIC Ch?nh</a>
+  <a href="/dao-hoa-anh-dao.html" style="color:inherit;text-decoration:none;font-weight:600;padding:4px 10px;border-radius:8px;border:1px solid var(--line);background:var(--bg);">?? ??o Hoa Anh ??o</a>
+  <a href="/quan-dao-vo-tan-three.html" style="color:inherit;text-decoration:none;font-weight:600;padding:4px 10px;border-radius:8px;border:1px solid var(--line);background:var(--bg);">??? Qu?n ??o V? T?n</a>
+  <a href="/thi_tran3D-three.html" style="color:inherit;text-decoration:none;font-weight:600;padding:4px 10px;border-radius:8px;border:1px solid var(--line);background:var(--bg);">??? Th? Tr?n 3D</a>
+</div>
+
+  <h1>🌸 Đảo hoa anh đào — cây lớn bằng ví xu chung của thị trấn</h1>
+  <div class="view" id="view">
+    <canvas id="cv" role="img" aria-label="Hòn đảo nổi có một cây hoa anh đào lớn dần theo xu bạn kiếm được. Dùng các nút bên dưới để chăm cây."></canvas>
+    <div class="hud"><span class="chip" id="coin"></span><span class="chip" id="stg"></span><span class="chip">Kéo: xoay · Cuộn/chụm: zoom · Bấm cây: rung</span></div>
+    <div class="gbar"><div class="mute" id="gtxt"></div><div class="bar" role="progressbar" aria-label="Sinh trưởng" id="gb" aria-valuemin="0" aria-valuemax="900"><i id="gi" style="width:0"></i></div></div>
+    <div class="err" id="err" hidden>Trình duyệt không chạy được WebGL hoặc không tải được Three.js. Hãy thử trình duyệt khác.</div>
+  </div>
+  <div class="ctl">
+    <button class="pri" id="wa">💧 Tưới nước · 5 xu (+10)</button>
+    <button class="pri" id="fe">🌿 Bón phân · 20 xu (+50)</button>
+    <button id="l" aria-label="Xoay trái">⟲</button><button id="r" aria-label="Xoay phải">⟳</button>
+    <button id="zo" aria-label="Thu nhỏ">➖</button><button id="zi" aria-label="Phóng to">➕</button>
+  </div>
+  <div class="card" id="sim">
+    <b>📖 Giả lập việc học</b> <span class="mute">(mở qua máy chủ và đăng nhập thì thẻ này tự ẩn: xu đến từ bài học, trò chơi, file nộp, quà đăng nhập và quà chuỗi)</span>
+    <div class="ctl" style="margin-top:6px">
+      <button id="e1">Câu mới đúng +3 🪙</button><button id="e2">Sửa câu từng sai +4 🪙</button><button id="e3">Ôn đúng hẹn +2 🪙</button><button id="nd">⏭ Sang ngày mới</button>
+    </div>
+    <div class="mute" id="cap" style="margin-top:6px"></div>
+  </div>
+  <div class="msg" id="msg" aria-live="polite">Học để kiếm xu, rồi dùng xu tưới cây. Cây không bao giờ héo, bạn nghỉ bao lâu cũng được.</div>
+</div>
+<script src="/vendor/three.r128.min.js"></script>
+<script>
+const $=id=>document.getElementById(id),clamp=(v,a,b)=>Math.min(b,Math.max(a,v));
+const STG=[["Hạt giống",0],["Mầm non",27],["Cây con",100],["Cây trẻ",250],["Cây nở hoa",500],["Anh đào cổ thụ",900]],MAXP=900,CAP=60;
+const stg=p=>{let i=0;STG.forEach((s,k)=>{if(p>=s[1])i=k});return i};
+const S={coins:12,pts:0,today:0,day:1};
+try{Object.assign(S,JSON.parse(localStorage.getItem("sakura:v1")||"{}"))}catch(e){}
+["coins","pts","today","day"].forEach(k=>{S[k]=Math.max(0,Math.floor(+S[k]||0))});S.pts=Math.min(MAXP,S.pts);S.day=S.day||1;
+const save=()=>{try{localStorage.setItem("sakura:v1",JSON.stringify(S))}catch(e){}};
+const say=t=>{$("msg").textContent=t};
+const RM=matchMedia("(prefers-reduced-motion: reduce)").matches;
+let target=S.pts/MAXP,wob=0;
+/* LIVE = cây đang uống chung VÍ XU THẬT với thị trấn (GET /api/sakura trả về số dư).
+   Mở bằng file:// hoặc khi chưa đăng nhập thì ở lại chế độ giả lập localStorage. */
+let LIVE=false;
+const api=(p,b)=>fetch(p,{method:b?"POST":"GET",headers:b?{"Content-Type":"application/json"}:undefined,credentials:"same-origin",body:b?JSON.stringify(b):undefined})
+  .then(r=>r.json().catch(()=>({})).then(j=>({ok:r.ok,j})));
+function pull(){
+  return api("/api/sakura").then(({ok,j})=>{
+    if(!ok||typeof j.points!=="number")return;
+    LIVE=true;S.coins=Math.max(0,Math.floor(j.coins||0));S.pts=Math.min(MAXP,j.points);
+    S.today=j.today_stats?j.today_stats.earned:0;save();$("sim").hidden=true;ui();
+    say("🌸 Cây uống chung một ví xu với thị trấn: học bài, chơi trò chơi, nộp tài liệu, quà đăng nhập và quà chuỗi đều đổ về đây.");
+  }).catch(()=>{});
+}
+function ui(){
+  const i=stg(S.pts),done=S.pts>=MAXP;
+  $("coin").textContent=`🪙 ${S.coins} xu${LIVE?" (ví chung)":""}`;$("stg").textContent=`🌸 ${STG[i][0]}`;
+  $("gtxt").textContent=done?"Cây đã trọn vẹn! 🌸":`Sinh trưởng ${S.pts}/${MAXP}`+(i<5?` · cấp kế: ${STG[i+1][0]} ở ${STG[i+1][1]}`:"");
+  $("gi").style.width=S.pts/MAXP*100+"%";$("gb").setAttribute("aria-valuenow",S.pts);
+  $("wa").disabled=done||S.coins<5;$("fe").disabled=done||S.coins<20;
+  $("cap").textContent=LIVE
+    ?`Hôm nay bài học tặng ${S.today}/${CAP} xu · số dư này cũng là của thị trấn và trò chơi`
+    :`Ngày ${S.day} · hôm nay đã nhận ${S.today}/${CAP} xu`;
+}
+function earn(k){const base={n:3,f:4,r:2}[k],g=Math.max(0,Math.min(base,CAP-S.today));S.today+=g;S.coins+=g;say(g?`+${g} xu từ việc học 🪙`:"Hôm nay bạn đã nhận đủ xu rồi. Ôn thêm vẫn giúp nhớ lâu nhé.");save();ui()}
+function care(w){
+  const act=w?"water":"fertilize",lab=w?"💧 Đã tưới nước":"🌿 Đã bón phân";
+  if(LIVE){
+    api("/api/sakura/care",{action:act}).then(({ok,j})=>{
+      if(!ok){say(j&&j.error?j.error:"Không chăm được cây, bạn thử lại nhé.");return;}
+      S.coins=j.coins;S.pts=j.points;target=S.pts/MAXP;wob=1;save();
+      say(`${lab} (−${j.cost} xu, +${j.gained} sinh trưởng, ví còn ${j.coins} xu)`+(j.leveledUp?` · Cây vừa lớn thành: ${STG[stg(S.pts)][0]} 🌸`:""));
+      ui();
+    }).catch(()=>say("Máy chủ không trả lời — cây và ví vẫn nguyên."));
+    return;
+  }
+  const c=w?[5,10]:[20,50];if(S.coins<c[0]||S.pts>=MAXP)return;const b=stg(S.pts);
+  S.coins-=c[0];S.pts=Math.min(MAXP,S.pts+c[1]);target=S.pts/MAXP;wob=1;const a=stg(S.pts);
+  say(`${lab} (−${c[0]} xu, +${c[1]} sinh trưởng)`+(a>b?` · Cây vừa lớn thành: ${STG[a][0]} 🌸`:""));save();ui();
+}
+$("e1").onclick=()=>earn("n");$("e2").onclick=()=>earn("f");$("e3").onclick=()=>earn("r");
+$("nd").onclick=()=>{S.day++;S.today=0;save();ui();say("Ngày mới bắt đầu. Cây vẫn xanh tốt như hôm qua.")};
+$("wa").onclick=()=>care(true);$("fe").onclick=()=>care(false);ui();
+if(location.protocol!=="file:")pull();
+if(!window.THREE){$("err").hidden=false}else try{
+const T=THREE,V3=T.Vector3,UP=new V3(0,1,0);
+const cv=$("cv"),view=$("view");
+const renderer=new T.WebGLRenderer({antialias:true,canvas:cv,alpha:true});renderer.setPixelRatio(Math.min(2,devicePixelRatio));renderer.setClearColor(0,0);renderer.shadowMap.enabled=true;renderer.shadowMap.type=T.PCFSoftShadowMap;
+const scene=new T.Scene(),cam=new T.PerspectiveCamera(42,1,.1,300);
+const hemi=new T.HemisphereLight("#ffeef5","#8a9a78",.85),sun=new T.DirectionalLight("#fff0e2",.9);
+sun.position.set(14,26,12);sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);sun.shadow.bias=-.0006;Object.assign(sun.shadow.camera,{left:-20,right:20,top:20,bottom:-20,near:1,far:70});sun.shadow.camera.updateProjectionMatrix();
+scene.add(hemi,sun);
+const dm=matchMedia("(prefers-color-scheme: dark)"),theme=()=>{hemi.intensity=dm.matches?.45:.85;sun.intensity=dm.matches?.5:.9;sun.color.set(dm.matches?"#b9c4ff":"#fff0e2")};theme();dm.addEventListener("change",theme);
+const MC={},mat=(c,o)=>{const k=c+(o?JSON.stringify(o):"");return MC[k]||(MC[k]=new T.MeshStandardMaterial(Object.assign({color:c,flatShading:true,roughness:.85},o)))};
+const put=(g,geo,c,x,y,z,o)=>{const m=new T.Mesh(geo,mat(c,o));m.position.set(x,y,z);m.castShadow=m.receiveShadow=true;g.add(m);return m};
+const B=(g,w,h,d,c,x,y,z)=>put(g,new T.BoxGeometry(w,h,d),c,x,y+h/2,z);
+/* ---- đảo nổi ---- */
+const isle=new T.Group();scene.add(isle);
+put(isle,new T.CylinderGeometry(9,8.4,1,32),"#86c46f",0,0,0);
+put(isle,new T.CylinderGeometry(9.1,9.1,.25,32),"#9bd37f",0,.4,0);
+const c1=put(isle,new T.ConeGeometry(8.4,8,8),"#8d7b6a",0,-4.5,0);c1.rotation.x=Math.PI;
+const c2=put(isle,new T.ConeGeometry(5,6,7),"#76675a",1.2,-7,-1);c2.rotation.x=Math.PI;
+const c3=put(isle,new T.ConeGeometry(2.6,4,6),"#6a5c50",-3,-6.4,2);c3.rotation.x=Math.PI;
+put(isle,new T.CylinderGeometry(2.4,2.4,.1,24),"#6bc3ea",4.2,.5,3.6,{roughness:.2,emissive:"#2a7fa8",emissiveIntensity:.25});
+for(let k=0;k<9;k++){const a=k/9*6.28;put(isle,new T.DodecahedronGeometry(.3+(k%3)*.1),"#a8a8a2",4.2+Math.cos(a)*2.5,.6,3.6+Math.sin(a)*2.5)}
+[-1,1].forEach(s=>B(isle,.3,3,.3,"#d0443a",-4.5+s*1.1,.5,6.3));B(isle,3,.3,.4,"#d0443a",-4.5,3.2,6.3);B(isle,2.6,.2,.3,"#2b2020",-4.5,2.6,6.3);
+for(let k=0;k<40;k++){const a=Math.random()*6.28,r=3+Math.random()*5.4,g=put(isle,new T.ConeGeometry(.12,.45,5),k%2?"#6fb85c":"#5aa84c",Math.cos(a)*r,.72,Math.sin(a)*r);if(k%5===0)put(isle,new T.SphereGeometry(.1,6,5),["#fff","#ffd54a","#ff9fbe"][k%3],Math.cos(a)*r+.2,.78,Math.sin(a)*r)}
+/* ---- cây anh đào: sinh theo cây cố định, mỗi bộ phận lớn lên khi tiến độ P vượt ngưỡng t0 ---- */
+const tree=new T.Group();tree.position.y=.5;isle.add(tree);
+const rnd=(s=>()=>{s|=0;s=s+0x6D2B79F5|0;let t=Math.imul(s^s>>>15,1|s);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296})(11);
+const parts=[],bl=[],GREEN=new T.Color("#7bc96f"),PINK=["#ffc1d6","#ffb0cb","#ffd9e6","#ff9fbe"].map(c=>new T.Color(c));
+function limb(o,d,len,rad,dep,t0){
+ const geo=new T.CylinderGeometry(rad*.66,rad,len,7);geo.translate(0,len/2,0);
+ const m=new T.Mesh(geo,mat(dep<2?"#5b3f31":"#7a5545"));m.position.copy(o);m.quaternion.setFromUnitVectors(UP,d);m.castShadow=m.receiveShadow=true;m.scale.setScalar(0);tree.add(m);parts.push({m,t0,cs:0});
+ const tip=o.clone().addScaledVector(d,len);
+ if(dep>=4){for(let k=0;k<2;k++){const r=1.3+rnd()*.7,mt=new T.MeshStandardMaterial({color:"#7bc96f",flatShading:true,roughness:.9}),s=new T.Mesh(new T.IcosahedronGeometry(r,1),mt);
+   s.position.copy(tip).add(new V3((rnd()-.5)*1.6,(rnd()-.3)*1.2,(rnd()-.5)*1.6));s.castShadow=true;s.scale.setScalar(0);tree.add(s);parts.push({m:s,t0:t0+.02*k,cs:0});bl.push({mt,c:PINK[(rnd()*4)|0]})}return}
+ const n=dep===0?4:dep<3?3:2;
+ for(let i=0;i<n;i++){let dd;
+  if(dep===0){const a=i/n*6.28+rnd()*.6;dd=new V3(Math.cos(a)*.85,.75,Math.sin(a)*.85)}
+  else dd=d.clone().add(new V3((rnd()-.5)*1.5,(rnd()-.25)*.8,(rnd()-.5)*1.5));
+  limb(tip,dd.normalize(),len*(.74+rnd()*.1),rad*.6,dep+1,t0+.1+rnd()*.05)}
+}
+limb(new V3(0,0,0),new V3(.06,1,.04).normalize(),5,.8,0,0);
+const seed=new T.Group();isle.add(seed);seed.position.y=.6;
+put(seed,new T.SphereGeometry(.35,10,8),"#8a5a2b",0,.1,0).scale.y=.7;
+[-1,1].forEach(s=>{const l=put(seed,new T.ConeGeometry(.18,.6,6),"#6fcf6a",s*.25,.7,0);l.rotation.z=-s*.7});
+/* hoa rơi */
+const N=200,pp=new Float32Array(N*3),pv=new Float32Array(N*2),pg=new T.BufferGeometry();pg.setAttribute("position",new T.BufferAttribute(pp,3));
+const tx=document.createElement("canvas");tx.width=tx.height=32;const cx=tx.getContext("2d"),gr=cx.createRadialGradient(16,16,2,16,16,15);gr.addColorStop(0,"#fff");gr.addColorStop(1,"rgba(255,255,255,0)");cx.fillStyle=gr;cx.fillRect(0,0,32,32);
+const petals=new T.Points(pg,new T.PointsMaterial({color:"#ffc4d8",size:.5,map:new T.CanvasTexture(tx),transparent:true,depthWrite:false}));petals.frustumCulled=false;isle.add(petals);
+const spawn=(i,top)=>{const s=tree.scale.x,a=Math.random()*6.28,r=Math.sqrt(Math.random())*9*s;pp[i*3]=Math.cos(a)*r;pp[i*3+1]=(top?9+Math.random()*5:Math.random()*13)*s+.6;pp[i*3+2]=Math.sin(a)*r;pv[i*2]=.5+Math.random()*.7;pv[i*2+1]=Math.random()*6.28};
+for(let i=0;i<N;i++)spawn(i,false);
+/* mây */
+const sky=new T.Group();scene.add(sky);
+for(let k=0;k<6;k++){const c=new T.Group(),a=k*1.05,r=24+k%3*5;c.position.set(r*Math.cos(a),8+k%4*3,r*Math.sin(a));[[0,0,0,2],[1.8,-.3,.4,1.5],[-1.7,-.3,-.3,1.5]].forEach(q=>{const m=new T.Mesh(new T.SphereGeometry(q[3],10,8),new T.MeshBasicMaterial({color:"#fff",transparent:true,opacity:.85}));m.position.set(q[0],q[1],q[2]);c.add(m)});sky.add(c)}
+/* camera */
+const tgt=new V3(0,6,0),Vc={th:.6,ph:1.05,r:40},Vt={th:.6,ph:1.05,r:40};
+const place=()=>{cam.position.set(tgt.x+Vc.r*Math.sin(Vc.ph)*Math.sin(Vc.th),tgt.y+Vc.r*Math.cos(Vc.ph),tgt.z+Vc.r*Math.sin(Vc.ph)*Math.cos(Vc.th));cam.lookAt(tgt)};
+const ptr=new Map(),ray=new T.Raycaster(),mv=new T.Vector2();let moved=0,pd=0;
+const pdist=()=>{const a=[...ptr.values()];return Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y)||1};
+cv.addEventListener("pointerdown",e=>{cv.setPointerCapture(e.pointerId);ptr.set(e.pointerId,{x:e.clientX,y:e.clientY});moved=0;if(ptr.size===2)pd=pdist()});
+cv.addEventListener("pointermove",e=>{const p=ptr.get(e.pointerId);if(!p)return;const dx=e.clientX-p.x,dy=e.clientY-p.y;p.x=e.clientX;p.y=e.clientY;moved+=Math.abs(dx)+Math.abs(dy);
+ if(ptr.size===1){Vt.th-=dx*.006;Vt.ph=clamp(Vt.ph-dy*.005,.3,1.5)}else if(ptr.size===2){const d=pdist();Vt.r=clamp(Vt.r*pd/d,18,80);pd=d}});
+cv.addEventListener("pointerup",e=>{ptr.delete(e.pointerId);if(moved<6&&ptr.size===0){const r=cv.getBoundingClientRect();mv.set((e.clientX-r.left)/r.width*2-1,-((e.clientY-r.top)/r.height)*2+1);ray.setFromCamera(mv,cam);if(ray.intersectObject(tree,true).length){wob=1;say("Cây khẽ rung, vài cánh hoa rơi xuống 🌸 (bấm cây không có thưởng, chỉ để vui)")}}});
+cv.addEventListener("pointercancel",e=>ptr.delete(e.pointerId));
+cv.addEventListener("wheel",e=>{e.preventDefault();Vt.r=clamp(Vt.r+e.deltaY*.03,18,80)},{passive:false});
+$("l").onclick=()=>Vt.th-=.5;$("r").onclick=()=>Vt.th+=.5;$("zi").onclick=()=>Vt.r=clamp(Vt.r-6,18,80);$("zo").onclick=()=>Vt.r=clamp(Vt.r+6,18,80);
+const size=()=>{const w=view.clientWidth,h=view.clientHeight;renderer.setSize(w,h,false);cam.aspect=w/h;cam.updateProjectionMatrix()};new ResizeObserver(size).observe(view);size();
+/* vòng lặp */
+let P=0,lastF=-1,last=performance.now();const ss=x=>x*x*(3-2*x);
+function loop(now){const dt=Math.min(.05,(now-last)/1000),t=now/1000;last=now;
+ for(const k of["th","ph","r"])Vc[k]+=(Vt[k]-Vc[k])*.12;place();
+ P+=(target-P)*Math.min(1,dt*1.6);const ts=.22+.78*ss(clamp(P,0,1));tree.scale.setScalar(ts);
+ wob=Math.max(0,wob-dt*.9);tree.rotation.z=RM?0:Math.sin(t*14)*.025*wob;
+ const kk=Math.min(1,dt*6);parts.forEach(p=>{const g=ss(clamp((P-p.t0)/.1,0,1));if(Math.abs(g-p.cs)>.0005){p.cs+=(g-p.cs)*kk;p.m.scale.setScalar(p.cs);p.m.visible=p.cs>.01}});
+ const f=clamp((P-.62)/.25,0,1);if(Math.abs(f-lastF)>.002){lastF=f;bl.forEach(b=>b.mt.color.copy(GREEN).lerp(b.c,f))}
+ seed.visible=parts[0].cs<.35;
+ const n=RM?0:Math.floor(N*ss(clamp((P-.5)/.5,0,1)));pg.setDrawRange(0,n);
+ for(let i=0;i<n;i++){pp[i*3+1]-=pv[i*2]*dt;pp[i*3]+=Math.sin(t*1.3+pv[i*2+1])*.7*dt;pp[i*3+2]+=Math.cos(t*1.1+pv[i*2+1])*.7*dt;if(pp[i*3+1]<.6)spawn(i,true)}
+ pg.attributes.position.needsUpdate=true;
+ if(!RM)isle.position.y=Math.sin(t*.8)*.3;sky.rotation.y+=dt*.01;
+ renderer.render(scene,cam);requestAnimationFrame(loop)}
+requestAnimationFrame(loop);
+P=target;
+}catch(err){$("err").hidden=false;console.error(err)}
+</script>
+</body>
+</html>

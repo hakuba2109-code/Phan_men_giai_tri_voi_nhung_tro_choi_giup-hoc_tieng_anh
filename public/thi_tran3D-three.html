@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Thị trấn 3D — Three.js</title>
+<link rel="stylesheet" href="demo-core.css">
+<style>.plots button small{display:block;font-size:12px;color:var(--mute)}</style>
+</head>
+<body>
+<div class="wrap">
+<div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:8px 12px;margin:0 0 10px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:13.5px;">
+  <span style="font-weight:700;color:var(--brand);">🔗 Liên kết nhanh:</span>
+  <a href="/choi" style="color:inherit;text-decoration:none;font-weight:600;padding:4px 10px;border-radius:8px;border:1px solid var(--line);background:var(--bg);">🎮 Game TOEIC chính</a>
+  <a href="/dao-hoa-anh-dao.html" style="color:inherit;text-decoration:none;font-weight:600;padding:4px 10px;border-radius:8px;border:1px solid var(--line);background:var(--bg);">🌸 Đảo hoa anh đào</a>
+  <a href="/quan-dao-vo-tan-three.html" style="color:inherit;text-decoration:none;font-weight:600;padding:4px 10px;border-radius:8px;border:1px solid var(--line);background:var(--bg);">🏝️ Quần đảo vô tận</a>
+  <a href="/thi_tran3D-three.html" style="color:inherit;text-decoration:none;font-weight:600;padding:4px 10px;border-radius:8px;border:1px solid var(--line);background:var(--bg);">🏘️ Thị trấn 3D</a>
+</div>
+
+  <h1>🏘️ Thị trấn 3D bằng Three.js</h1>
+  <div class="view" id="view">
+    <canvas id="cv" role="img" aria-label="Cảnh thị trấn 3D dựng từ dữ liệu thật: các khu học tập và một thú ảo. Dùng bảng bên dưới để xây bằng bàn phím."></canvas>
+    <div class="hud"><span class="chip" id="chip"></span><span class="chip">Kéo: xoay · Cuộn hoặc chụm: zoom · Bấm ô đất / thú</span></div>
+    <div id="labs"></div>
+    <div class="err" id="err" hidden>Trình duyệt không chạy được WebGL hoặc không tải được Three.js. Hãy thử trình duyệt khác.</div>
+  </div>
+  <div class="ctl">
+    <button id="l" aria-label="Xoay trái">⟲</button><button id="r" aria-label="Xoay phải">⟳</button>
+    <button id="zo" aria-label="Thu nhỏ">➖</button><button id="zi" aria-label="Phóng to">➕</button>
+    <button id="sl">💤 Cho thú ngủ</button>
+  </div>
+  <div class="card">
+    <label>Xây bằng bàn phím — chọn khu: <select id="dsel"></select></label>
+    <div class="plots" id="pl"></div>
+  </div>
+  <div class="msg" id="msg" role="status" aria-live="polite">Bấm vào ô đất có vòng sáng để xây. Bấm vào thú để chào.</div>
+  <div class="mute" style="margin-top:6px">Bản thử một trang (mở tại <code>/thi_tran3D-three.html</code>). Camera, khối, nhãn nổi, hiệu ứng xây và hộp chọn khu dùng <code>demo-core-three.js</code> + <code>demo-core.css</code> — chung lõi với bản <a href="quan-dao-vo-tan-three.html">🏝️ Quần đảo vô tận + Nuôi thú cưng</a>. Mọi số liệu là <b>THẬT</b>, đọc từ <code>GET /api/town</code>: danh sách khu theo chủ điểm trong CSDL, số dư và giá xây (<b>20 / 50 / 100 xu</b>) lấy từ ví xu chung. Bấm xây gọi <code>POST /api/town/build</code>, cho thú nghỉ gọi <code>POST /api/town/rest</code> — máy chủ quyết định, không có nút giả lập. Trang cần chạy qua máy chủ (mở bằng <code>file://</code> sẽ không có thị trấn).</div>
+</div>
+<script src="/vendor/three.r128.min.js"></script>
+<script src="demo-core-three.js"></script>
+<script>
+const {$,clamp,msg,RM}=D3;
+const PN=["Nhà ở","Cửa hàng","Thư viện","Công viên"],ST=["Trứng","Con non","Thiếu niên","Trưởng thành","Huyền thoại"];
+/* Chủ điểm lấy từ CSDL, không phải 5 tên cứng: khu đã biết giữ tên riêng, khu lạ sinh icon/màu theo hash (giống town3d.js). */
+const TOPIC_META={"Thì":{icon:"⏳",zone:"Khu Đồng Hồ",color:"#f1d9a2"},"Từ loại":{icon:"🧱",zone:"Khu Xưởng Gạch",color:"#eab9a0"},"Giới từ":{icon:"🌉",zone:"Khu Cầu Cổng",color:"#a9d3e6"},"Đại từ":{icon:"👥",zone:"Khu Quảng Trường",color:"#cdbbe6"},"Từ vựng":{icon:"📚",zone:"Khu Phố Chợ",color:"#b9e0b2"}};
+const MORE_ICONS=["🎧","🧠","📘","🔎","🗺️","🧮","🎬","🔁","🪶","🧩"],MORE_COLORS=["#cfe6b9","#b9d8e6","#e6c9b9","#d9b9e6","#e6e0b9","#b9e6dc","#e6b9c9","#c9d9e6"];
+function metaOf(t){const k=TOPIC_META[t];if(k)return k;let h=0;const s=String(t);for(let i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))%9973;return{icon:MORE_ICONS[h%MORE_ICONS.length],zone:"Khu "+(s.length>16?s.slice(0,15)+"…":s),color:MORE_COLORS[h%MORE_COLORS.length]}}
+/* fetch cùng nguồn (cookie toeic_session) — khách chưa đăng nhập vẫn dùng được (user_id = 0). */
+const api=(p,b)=>fetch(p,{method:b?"POST":"GET",headers:b?{"Content-Type":"application/json"}:undefined,credentials:"same-origin",body:b?JSON.stringify(b):undefined}).then(r=>r.json().catch(()=>({})).then(j=>({ok:r.ok,j})));
+/* Toàn bộ số liệu đến từ /api/town — không còn biến giả lập. */
+const S={xu:0,pet:null,sleep:false};
+let COST=[20,50,100],LEFT={lesson:0},CAPS={lesson:0},DISTRICTS=[],LIVE=false;
+if(!window.THREE){$("err").hidden=false}else try{
+const T=D3.T,{mat,put,B,K,Sp}=D3,C=D3.Cy,R=D3.Ro;
+const GL={emissive:"#ffe9a8",emissiveIntensity:.35},WIN="#ffe9a8",BK=["#e5484d","#4a7de0","#f2b34a","#58b368","#9b6bd6"];
+/* ---------- mô hình công trình: 4 loại x 3 cấp ---------- */
+function model(i,lv){const g=new T.Group();
+ if(i===0){
+  if(lv===1){K(g,.8,1.1,"#e9c47e",0,0,0,4).rotation.y=Math.PI/4;B(g,.3,.45,.05,"#5b3b22",0,0,.5);C(g,.025,.025,.5,"#7a5430",0,1.1,0,6);B(g,.3,.18,.03,"#e5484d",.15,1.4,0)}
+  if(lv===2){B(g,1.2,.75,1,"#f4e6c8",0,0,0);R(g,1.4,.65,1.15,"#c8553d",0,.75,0);B(g,.26,.42,.06,"#6b4423",0,0,.51);[-.38,.38].forEach(x=>B(g,.22,.22,.06,WIN,x,.32,.51,GL))}
+  if(lv===3){B(g,1.1,1,1.1,"#f4e6c8",-.2,0,0);R(g,1.3,.7,1.25,"#b5442e",-.2,1,0);B(g,.6,.65,.8,"#f4e6c8",.58,0,.1);R(g,.7,.4,.9,"#b5442e",.58,.65,.1);B(g,.18,.55,.18,"#8a6d5a",-.5,1,-.3);B(g,.26,.45,.06,"#6b4423",-.2,0,.56);[-.55,.15].forEach(x=>B(g,.22,.24,.06,WIN,x,.55,.56,GL));B(g,.2,.2,.06,WIN,.58,.3,.51,GL);K(g,.12,.3,"#3f9b56",-.85,0,.6,8)}
+ }
+ if(i===1){
+  if(lv===1){B(g,1.1,.45,.65,"#a9783f",0,0,0);[[-.5,-.3],[.5,-.3],[-.5,.3],[.5,.3]].forEach(p=>C(g,.04,.04,1.1,"#7a5430",p[0],0,p[1],6));const a=B(g,1.3,.07,.85,"#d94f4f",0,1.1,0);a.rotation.x=.15;[["#f2a33a",-.3],["#e5484d",0],["#7acb5a",.3]].forEach(f=>Sp(g,.1,f[0],f[1],.53,0))}
+  if(lv===2){B(g,1.2,.8,1,"#f7ead2",0,0,0);B(g,1.3,.1,1.1,"#8a5a2b",0,.8,0);for(let k=0;k<4;k++)B(g,.3,.06,.4,k%2?"#fff":"#d94f4f",-.45+k*.3,.72,.68);B(g,.26,.42,.06,"#6b4423",.3,0,.51);B(g,.35,.3,.06,WIN,-.3,.2,.51,GL)}
+  if(lv===3){B(g,1.3,1.5,1.1,"#f7ead2",0,0,0);B(g,1.36,.08,1.16,"#8a5a2b",0,.75,0);B(g,1.4,.12,1.2,"#8a5a2b",0,1.5,0);for(let k=0;k<4;k++)B(g,.33,.06,.45,k%2?"#fff":"#d94f4f",-.5+k*.33,.68,.72);B(g,1,.2,.06,"#e8b04a",0,1.15,.58,{metalness:.4});[-.4,0,.4].forEach(x=>B(g,.2,.22,.06,WIN,x,.85,.56,GL));B(g,.28,.45,.06,"#6b4423",.35,0,.56);B(g,.4,.32,.06,WIN,-.3,.2,.56,GL)}
+ }
+ if(i===2){
+  if(lv===1){B(g,.9,.9,.35,"#8b5a2b",0,0,0);for(let r=0;r<2;r++)for(let k=0;k<5;k++)B(g,.12,.3,.25,BK[k],-.34+k*.17,.1+r*.42,.1);B(g,1,.06,.5,"#5b3b22",0,.9,0)}
+  if(lv===2){B(g,1.2,.8,1,"#ebe3d2",0,0,0);R(g,1.4,.55,1.15,"#6b7fa8",0,.8,0);[-.45,.45].forEach(x=>C(g,.07,.07,.8,"#fff",x,0,.55,10));B(g,.28,.45,.06,"#6b4423",0,0,.51);B(g,1.3,.08,.2,"#d8d2c4",0,0,.62)}
+  if(lv===3){B(g,1.6,.12,1.4,"#d8d2c4",0,0,0);B(g,1.3,1,1,"#f2ede0",0,.12,-.1);for(let k=0;k<4;k++)C(g,.07,.07,1,"#fff",-.5+k*.33,.12,.55,10);B(g,1.45,.1,.4,"#e0d8c6",0,1.12,.45);R(g,1.4,.4,.3,"#f2ede0",0,1.22,.45);C(g,.36,.4,.25,"#e0d8c6",0,1.12,-.1,16);put(g,new T.SphereGeometry(.38,16,10,0,Math.PI*2,0,Math.PI/2),"#d9a441",0,1.37,-.1,{metalness:.5,roughness:.4});C(g,.025,.025,.2,"#d9a441",0,1.75,-.1,6)}
+ }
+ if(i===3){
+  if(lv===1){C(g,.05,.07,.45,"#7a5430",0,0,0,6);Sp(g,.28,"#69bd62",0,.65,0);[["#e5484d",-.5,.4],["#f2b34a",.5,.45],["#9b6bd6",.4,-.5]].forEach(f=>{Sp(g,.08,f[0],f[1],.08,f[2])})}
+  if(lv===2){C(g,.1,.14,.7,"#7a5430",0,0,0,8);K(g,.62,.8,"#3f9b56",0,.5,0,8);K(g,.5,.7,"#4aad60",0,.95,0,8);K(g,.35,.55,"#58bd6c",0,1.35,0,8);B(g,.5,.08,.2,"#a9783f",.55,.22,.5);B(g,.06,.22,.06,"#7a5430",.35,0,.5);B(g,.06,.22,.06,"#7a5430",.75,0,.5)}
+  if(lv===3){C(g,.78,.84,.25,"#cfd3d8",0,0,0,20);C(g,.68,.68,.06,"#6bc4ea",0,.24,0,20,{emissive:"#2a7fa8",emissiveIntensity:.3,roughness:.1});C(g,.1,.14,.6,"#cfd3d8",0,.25,0,10);C(g,.4,.22,.12,"#cfd3d8",0,.85,0,16);C(g,.3,.3,.04,"#6bc4ea",0,.96,0,16,{emissive:"#2a7fa8",emissiveIntensity:.3});Sp(g,.12,"#9fdcf5",0,1.18,0,{emissive:"#4aa8d0",emissiveIntensity:.4});[[-.75,-.75],[.75,-.75]].forEach(p=>K(g,.2,.5,"#3f9b56",p[0],0,p[1],8))}
+ }
+ return g}
+/* ---------- thú ảo (rồng) theo giai đoạn ---------- */
+function petModel(st){const g=new T.Group(),eyes=[];
+ if(st===0){const e=Sp(g,.5,"#fff4dc",0,.62,0);e.scale.set(.85,1.15,.85);[["#7ed4a0",-.2,.8,.4],["#7ed4a0",.2,.5,.43],["#f3a6b8",0,1.05,.3]].forEach(a=>Sp(g,.09,a[0],a[1],a[2],a[3]));g.scale.setScalar(1.3);return g}
+ const G="#5bc48d",L="#d9f3c9";
+ Sp(g,.62,G,0,.7,0).scale.set(1,1.05,.95);Sp(g,.5,L,0,.62,.28).scale.set(.85,.95,.5);Sp(g,.46,G,0,1.5,.12);
+ [-1,1].forEach(s=>{Sp(g,.1,"#fff",s*.2,1.58,.46);eyes.push(Sp(g,.055,"#222",s*.2,1.58,.54));Sp(g,.07,"#f7a8b8",s*.3,1.4,.4);const h=K(g,.08,.3,"#f2b34a",s*.22,1.88,.1,8);h.rotation.z=-s*.3;const w=Sp(g,.4,"#8fe0b4",s*.62,.95,-.15);w.scale.set(.15,.7,.5);w.rotation.z=s*.3;const f=Sp(g,.2,G,s*.3,.12,.3);f.scale.set(1,.6,1.3)});
+ Sp(g,.17,L,0,1.4,.52);
+ const tl=K(g,.14,.7,G,0,0,0,8);tl.position.set(0,.4,-.85);tl.rotation.x=-1.3;
+ for(let k=0;k<3;k++)K(g,.09,.22,"#f2b34a",0,1.0-k*.25,-.55-k*.04,8);
+ if(st>=2){Sp(g,.08,"#e5484d",0,1.05,.55);[-1,1].forEach(s=>{const b=K(g,.1,.22,"#e5484d",s*.17,1.05,.55,6);b.rotation.z=s*-1.57})}
+ if(st>=3){const t=put(g,new T.TorusGeometry(.4,.07,8,18),"#4a7de0",0,1.12,.12);t.rotation.x=Math.PI/2}
+ if(st>=4){C(g,.22,.26,.18,"#ffd54a",0,1.93,.12,8,{metalness:.6,roughness:.3});for(let k=0;k<5;k++){const a=k/5*Math.PI*2;K(g,.05,.16,"#ffd54a",Math.sin(a)*.24,2.08,.12+Math.cos(a)*.24,6,{metalness:.6,roughness:.3})}}
+ g.scale.setScalar([.9,1,1.12,1.25][st-1]);g.userData.eyes=eyes;return g}
+/* ---------- tham chiếu cảnh (gán trong buildScene sau khi có dữ liệu server) ---------- */
+const cv=$("cv"),view=$("view"),plots={},dists={};
+let stage,renderer,scene,cam,LB,pops,sparks,sky,orbit,petRoot,petLab,v3,last,petStage=-1,hop=0;
+
+function district(t){return DISTRICTS.find(d=>d.topic===t)}
+const can=(t,i)=>{const d=district(t);if(!d)return false;const lv=d.plots[i];return lv<3&&S.xu>=COST[lv]};
+function setLevel(t,i){const p=plots[t]&&plots[t][i];if(!p)return;const lv=district(t).plots[i];
+ if(p.model)p.slot.remove(p.model);p.model=null;p.pad.material=mat(lv?"#d7ccb0":"#b99a6a");if(lv){p.model=model(i,lv);p.slot.add(p.model)}}
+function setPet(){if(!S.pet){if(petRoot.userData.m){petRoot.remove(petRoot.userData.m);petRoot.userData.m=null}petStage=-1;return}
+ const s=S.pet.stage||0;if(s===petStage)return;petStage=s;
+ if(petRoot.userData.m)petRoot.remove(petRoot.userData.m);
+ const m=petModel(s);petRoot.add(m);petRoot.userData.m=m}
+function renderPanel(){const t=$("dsel").value||(DISTRICTS[0]&&DISTRICTS[0].topic),d=district(t);if(!d)return;
+ $("pl").innerHTML=PN.map((n,i)=>{const lv=d.plots[i],c=COST[lv],ok=can(t,i),sub=lv>=3?"Tối đa":ok?"Xây: "+c+" xu":"Thiếu "+(c-S.xu)+" xu";
+  return `<button data-i="${i}" aria-label="${n}, cấp ${lv} trên 3. ${sub}">${n} · C${lv}<br><small>${sub}</small></button>`}).join("");
+ $("pl").querySelectorAll("button").forEach(b=>b.onclick=()=>tryBuild(t,+b.dataset.i))}
+function refresh(){DISTRICTS.forEach(d=>{const t=d.topic,m=metaOf(t),done=d.plots.every(l=>l>=3);
+  dists[t].lab.textContent=`${m.icon} ${m.zone} · +${d.earned} xu${done?" 🏆":""}`;dists[t].tr.visible=done;
+  d.plots.forEach((_,i)=>{plots[t][i].ring.visible=can(t,i)})});
+ setPet();petLab.textContent=S.pet?`🐾 ${S.pet.name} · ${ST[S.pet.stage||0]}${S.sleep?" 💤":""}`:"";
+ $("chip").textContent=`🪙 ${S.xu} xu (ví chung) · hôm nay bài học còn ${LEFT.lesson}/${CAPS.lesson} xu`;
+ renderPanel();$("sl").textContent=S.sleep?"☀️ Đánh thức thú":"💤 Cho thú ngủ"}
+
+/* Xây: luôn hỏi máy chủ (nguồn quyết định). Thành công mới đổi cảnh; 409/400 chỉ báo lỗi, giữ nguyên. */
+function tryBuild(t,i){if(!LIVE)return;const d=district(t);if(!d)return;msg("Đang xây…");
+ api("/api/town/build",{topic:t,plot:i}).then(({ok,j})=>{
+  if(!ok){msg(j&&j.error?j.error:"Không xây được, bạn thử lại nhé.");return}
+  S.xu=Math.max(0,Math.floor(j.xu));d.plots=(j.plots||d.plots).slice(0,4);setLevel(t,i);
+  if(!RM)pops.push(plots[t][i].slot);
+  sparks.at(plots[t][i].pg.getWorldPosition(new T.Vector3()).add(new T.Vector3(0,.8,0)),RM?0:16);
+  msg(`Đã xây ${PN[i]} cấp ${j.level} ở ${metaOf(t).zone} (−${j.cost} xu). Ví còn ${S.xu} xu.`);refresh()
+ }).catch(()=>msg("Máy chủ không trả lời — ví và công trình vẫn nguyên."))}
+function sleepToggle(){api("/api/town/rest",{days:S.sleep?0:1}).then(({ok,j})=>{
+  if(!ok){msg(j&&j.error?j.error:"Không cho thú nghỉ được, bạn thử lại nhé.");return}
+  if(j&&j.xu)S.xu=Math.max(0,Math.floor(j.xu.balance));S.pet=(j&&j.pet)||null;S.sleep=!!(S.pet&&S.pet.restUntil);
+  msg(S.sleep?"Thú đang nghỉ. Ví xu và công trình vẫn nguyên vẹn.":"Thú đã tỉnh, vui vẻ chào bạn!");refresh()
+ }).catch(()=>msg("Máy chủ không trả lời — thú và ví vẫn nguyên."))}
+
+const pick=ray=>{const h=ray.intersectObjects(scene.children,true)[0];if(!h)return null;
+ let o=h.object;while(o&&!o.userData.plot&&!o.userData.pet)o=o.parent;return o||null};
+
+/* ---------- dựng cảnh từ dữ liệu server: số khu thật quyết bán kính vòng ---------- */
+function buildScene(){
+ stage=D3.stage({canvas:cv,view,shadow:20,far:70,camFar:240,water:400,wy:-1.2});
+ renderer=stage.renderer;scene=stage.scene;cam=stage.cam;
+ const n=Math.max(1,DISTRICTS.length),per=5.9,ring=Math.max(6.4,(n*per)/(2*Math.PI)),isl=ring+4.6,camR=clamp(ring*3.9,20,46);
+ stage.onDark(d=>{const bg=d?"#12202f":"#bfe3f5";scene.background=new T.Color(bg);scene.fog=new T.Fog(bg,isl*3.6,isl*8);
+  stage.hemi.intensity=d?.4:.8;stage.sun.intensity=d?.5:.9;stage.sun.color.set(d?"#a9bcff":"#fff1d2");
+  stage.pool.material.color.set(d?"#2a5a78":"#5fb3d6");view.style.background=bg});
+ put(scene,new T.CylinderGeometry(isl,isl+.6,1.2,48),"#78c27c",0,-.6,0);
+ put(scene,new T.CylinderGeometry(isl+.7,isl+1.3,.9,48),"#e3d19b",0,-.75,0);
+ C(scene,2.4,2.6,.25,"#e0d9c3",0,0,0,32);C(scene,2.55,2.55,.12,"#c9c0a6",0,0,0,32).scale.y=.8;
+ LB=D3.labels($("labs"),view);pops=D3.pops();sparks=D3.sparks(scene);
+ DISTRICTS.forEach((d,k)=>{const m=metaOf(d.topic),t=d.topic,a=Math.PI/2+k*2*Math.PI/n,x=ring*Math.cos(a),z=ring*Math.sin(a),ph=Math.atan2(-Math.cos(a),-Math.sin(a));
+  const g=new T.Group();g.position.set(x,0,z);g.rotation.y=ph;scene.add(g);
+  B(g,4.25,.22,4.25,"#8a8274",0,0,0);B(g,4,.3,4,m.color,0,0,0);
+  const path=B(scene,1.2,.05,2,"#e8dfc6",(ring-3)*Math.cos(a),0,(ring-3)*Math.sin(a));path.rotation.y=ph;
+  const tr=new T.Mesh(new T.OctahedronGeometry(.28),mat("#ffd54a",{metalness:.6,roughness:.3}));tr.position.set(0,2.6,0);tr.visible=false;g.add(tr);
+  dists[t]={g,tr,lab:LB.mk(),pos:new T.Vector3(x,3.3,z)};plots[t]=[];
+  for(let i=0;i<4;i++){const pg=new T.Group();pg.position.set((i%2?1:-1)*.97,.3,(i>1?1:-1)*.97);pg.userData.plot={t,i};g.add(pg);
+   const pad=B(pg,1.75,.06,1.75,"#b99a6a",0,0,0);
+   const rm=new T.MeshBasicMaterial({color:"#46d37f",transparent:true,opacity:.9}),rg=new T.Mesh(new T.RingGeometry(.9,1.02,36),rm);rg.rotation.x=-Math.PI/2;rg.position.y=.08;rg.visible=false;pg.add(rg);
+   const slot=new T.Group();slot.position.y=.06;pg.add(slot);plots[t].push({pg,pad,ring:rg,rm,slot,model:null})}
+  const b=a+Math.PI/n,tx=(isl-1.9)*Math.cos(b),tz=(isl-1.9)*Math.sin(b);C(scene,.12,.16,.7,"#7a5430",tx,0,tz,6);K(scene,.8,1.3,"#3f9b56",tx,.6,tz,8);K(scene,.6,1.1,"#4aad60",tx,1.4,tz,8);
+  const rx=(isl-1)*Math.cos(b+.2),rz=(isl-1)*Math.sin(b+.2);put(scene,new T.DodecahedronGeometry(.4),"#9a9a94",rx,.15,rz)});
+ sky=D3.clouds(scene,5,isl+5,11);
+ petRoot=new T.Group();petRoot.position.y=.25;petRoot.userData.pet=true;scene.add(petRoot);petLab=LB.mk();
+ orbit=D3.orbit({cv,view,cam,tgt:new T.Vector3(0,.8,0),home:{th:.7,ph:1,r:camR},min:12,max:isl*4.2,
+  onHover:ray=>{const o=pick(ray);return o&&o.userData.plot?o:null},
+  onTap:ray=>{const o=pick(ray);if(!o)return;
+   if(o.userData.plot)tryBuild(o.userData.plot.t,o.userData.plot.i);
+   else{hop=1;msg("Mình chào bạn thôi, bấm mình không có thưởng đâu nhé 🙂")}}});
+ orbit.buttons(4);
+ for(const t in plots)for(let i=0;i<4;i++)setLevel(t,i);
+ v3=new T.Vector3();last=performance.now()}
+
+/* ---------- vòng lặp ---------- */
+function loop(now){if(!scene)return;const dt=Math.min(.05,(now-last)/1000),t=now/1000;last=now;
+ orbit.tick();
+ const m=petRoot.userData.m;
+ if(m){hop=Math.max(0,hop-dt*1.6);
+  if(!RM){const sl=S.sleep;m.position.y=Math.sin(t*(sl?1:2.4))*(sl?.03:.07)+Math.sin(hop*Math.PI)*.9;
+   (m.userData.eyes||[]).forEach(e=>e.scale.y=sl?.15:1)}
+  const a=Math.atan2(cam.position.x,cam.position.z),df=Math.atan2(Math.sin(a-petRoot.rotation.y),Math.cos(a-petRoot.rotation.y));petRoot.rotation.y+=df*.05}
+ pops.step(dt);sparks.step(dt);
+ const pulse=RM?1:.55+.45*Math.sin(t*4);
+ DISTRICTS.forEach(d=>{const t=d.topic,x=dists[t];if(!RM)x.tr.rotation.y=t;
+  plots[t].forEach((p,i)=>{p.rm.opacity=.4+.5*pulse;p.ring.visible=can(t,i)||p.pg===orbit.hov});
+  LB.proj(cam,x.lab,x.pos)});
+ if(!RM)sky.step(dt);
+ LB.proj(cam,petLab,v3.set(0,3.1,0));
+ renderer.render(scene,cam);requestAnimationFrame(loop)}
+
+function buildDsel(){const sel=$("dsel");sel.innerHTML="";DISTRICTS.forEach(d=>{const m=metaOf(d.topic);const o=document.createElement("option");o.value=d.topic;o.textContent=m.icon+" "+d.topic;sel.appendChild(o)});sel.onchange=refresh}
+
+/* state server → trạng thái trong máy rồi dựng cảnh */
+function startApp(j){LIVE=true;
+ COST=(j.xu&&j.xu.prices&&j.xu.prices.build)||COST;
+ S.xu=Math.max(0,Math.floor((j.xu&&j.xu.balance)||0));
+ CAPS=(j.xu&&j.xu.caps)||CAPS;LEFT=(j.xu&&j.xu.left)||LEFT;
+ S.pet=j.pet||null;S.sleep=!!(S.pet&&S.pet.restUntil);
+ const maxV=j.maxVisibleDistricts||8;
+ DISTRICTS=(j.districts||[]).slice(0,maxV).map(d=>({topic:d.topic,plots:(d.plots||[0,0,0,0]).slice(0,4),done:d.done,earned:d.earned||0}));
+ buildScene();buildDsel();refresh();requestAnimationFrame(loop);
+ msg(S.pet?"Chào mừng về thị trấn! Ôn bài để nhận xu, rồi bấm ô đất có vòng sáng để nâng cấp.":"Thị trấn của bạn chưa có thú — hãy chọn thú ở tab Thị trấn trong game. Cứ bấm ô đất để xây bằng ví xu chung.")}
+
+function noData(reason){LIVE=false;$("chip").textContent="🪙 — (chưa có dữ liệu)";
+ $("msg").textContent=reason||"Trang này cần chạy qua máy chủ (ví dụ http://localhost:3000/thi_tran3D-three.html) để đọc dữ liệu thật. Mở bằng file:// hoặc khi máy chủ tắt thì không hiển thị thị trấn."}
+
+$("sl").onclick=()=>{if(!LIVE){noData();return}sleepToggle()};
+function pull(){return api("/api/town").then(({ok,j})=>{
+ if(!ok||!j||!j.enabled||!Array.isArray(j.districts)||!j.districts.length){noData(j&&j.enabled===false?"Thị trấn đang tắt. Bật lại trong game để xem thị trấn.":null);return}
+ startApp(j)
+ }).catch(()=>noData())}
+if(location.protocol==="file:")noData("Trang đang mở bằng file:// — trình duyệt không gọi được /api/town. Hãy chạy qua máy chủ: http://localhost:3000/thi_tran3D-three.html.");
+else pull();
+
+window.T3={S:()=>S,districts:()=>DISTRICTS,can,tryBuild,refresh,setPet,startApp,plots:()=>plots,labCount:()=>LB?LB.count():0,frame:t=>{if(scene)loop(t||performance.now())}};
+}catch(err){$("err").hidden=false;console.error(err)}
+</script>
+</body>
+</html>

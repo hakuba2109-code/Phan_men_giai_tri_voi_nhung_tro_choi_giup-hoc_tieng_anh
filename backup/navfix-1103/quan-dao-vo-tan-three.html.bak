@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Quần đảo vô tận + Nuôi thú cưng — Three.js</title>
+<link rel="stylesheet" href="demo-core.css">
+<style>
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:8px;margin-top:8px}
+.item{border:1px solid var(--line);border-radius:10px;padding:8px;background:var(--bg)}
+.item h3{margin:0 0 4px;font-size:14px}
+.item.locked{opacity:.45}
+.item input[type=text]{width:100%;min-height:40px;border-radius:8px;border:1px solid var(--line);background:var(--card);padding:4px 8px;margin:4px 0}
+.bar{height:9px;border:1px solid var(--line);border-radius:99px;background:var(--card);overflow:hidden;margin:3px 0}
+.bar i{display:block;height:100%;background:var(--brand)}
+.chk div{padding:2px 0}
+</style>
+</head>
+<body>
+<div class="wrap">
+<div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:8px 12px;margin:0 0 10px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:13.5px;">
+  <span style="font-weight:700;color:var(--brand);">?? Li?n k?t nhanh:</span>
+  <a href="/choi" style="color:inherit;text-decoration:none;font-weight:600;padding:4px 10px;border-radius:8px;border:1px solid var(--line);background:var(--bg);">?? Game TOEIC Ch?nh</a>
+  <a href="/dao-hoa-anh-dao.html" style="color:inherit;text-decoration:none;font-weight:600;padding:4px 10px;border-radius:8px;border:1px solid var(--line);background:var(--bg);">?? ??o Hoa Anh ??o</a>
+  <a href="/quan-dao-vo-tan-three.html" style="color:inherit;text-decoration:none;font-weight:600;padding:4px 10px;border-radius:8px;border:1px solid var(--line);background:var(--bg);">??? Qu?n ??o V? T?n</a>
+  <a href="/thi_tran3D-three.html" style="color:inherit;text-decoration:none;font-weight:600;padding:4px 10px;border-radius:8px;border:1px solid var(--line);background:var(--bg);">??? Th? Tr?n 3D</a>
+</div>
+
+  <h1>🏝️🐶🐱 Quần đảo vô tận + Nuôi thú cưng — bản demo một trang</h1>
+  <div class="view" id="view">
+    <canvas id="cv" role="img" aria-label="Cảnh 3D hòn đảo có nhà, cây, ba công trình và thú cưng đi lại. Dùng các bảng bên dưới để chơi bằng bàn phím."></canvas>
+    <div class="hud"><span class="chip" id="chipCoin"></span><span class="chip" id="chipDay"></span><span class="chip" id="chipSeen"></span></div>
+    <div id="labs"></div>
+    <div class="err" id="err" hidden>Trình duyệt không chạy được WebGL hoặc không tải được Three.js — mọi bảng bên dưới vẫn dùng được bình thường bằng bàn phím.</div>
+  </div>
+  <div class="ctl">
+    <button id="l" aria-label="Xoay trái">⟲</button><button id="r" aria-label="Xoay phải">⟳</button>
+    <button id="zo" aria-label="Thu nhỏ">➖</button><button id="zi" aria-label="Phóng to">➕</button>
+    <button id="eco" aria-label="Bật chế độ tiết kiệm máy yếu">🪫 Tiết kiệm</button>
+  </div>
+  <div class="ctl" id="tabs" role="tablist"></div>
+  <div class="card" id="panel"></div>
+  <div class="msg" id="msg" role="status" aria-live="polite">Bấm ô đất có vòng sáng để nâng cấp. Bấm thú để chào. Bấm mặt đất để gọi thú chạy tới.</div>
+  <div class="mute" style="margin-top:6px">Demo một trang theo <b>README-quan-dao-vo-tan-va-thu-cung</b>: dữ liệu nằm trong <code>localStorage</code>, <b>không</b> gọi API, <b>không</b> đọc CSDL. Bản thật sẽ do server tính xu và giá (mốc M1–M5). Camera, nhãn nổi, khối cơ bản, hiệu ứng và hộp xác nhận dùng chung <code>demo-core-three.js</code> với bản <a href="thi_tran3D—three.html">🏘️ Thị trấn 3D</a>. Xu chỉ là phần thưởng hình ảnh: không mở khóa câu hỏi, không đổi lịch ôn, không có đường nào làm mất xu — đảo — thú.</div>
+</div>
+<div class="ovl" id="ovl" hidden role="dialog" aria-modal="true" aria-labelledby="dt"><div class="dlg">
+  <h2 id="dt"></h2><p id="db" class="mute"></p>
+  <div class="ctl"><button class="pri" id="dok">Đồng ý</button><button id="dno">Hủy</button></div>
+</div></div>
+<script src="/vendor/three.r128.min.js"></script>
+<script src="demo-core-three.js"></script>
+<script>
+"use strict";
+const {$,clamp,msg,RM,confirm:confirmBox}=D3;
+const LSK="quandao-vo-tan-v1";
+
+/* ============ 1. LUẬT THUẦN (không đụng Three.js — tự kiểm tra được) ============ */
+const COST=[10,25,50], LESSON_CAP=60, GAME_CAP=30, MEALS=3, CARES=5, FIRST_SEEN=3, MAX_SEEN=6;
+const factor=n=>Math.min(3,1+.15*(n-1));
+const costOf=(n,lv)=>Math.round(COST[clamp(lv,0,2)]*factor(n));
+const islandCost=n=>5*(costOf(n,0)+costOf(n,1)+costOf(n,2));
+
+const THEMES=[
+ {k:"sakura",ic:"🌸",nm:"Anh Đào",amb:"petals",fn:["Cổng torii","Hồ cá koi","Đèn đá"],fk:["torii","koi","lantern"],fic:["⛩️","🎏","🏮"],feo:[1.0,1.9,.7],
+  c:{wall:"#f4e6c8",roof:"#c8553d",wood:"#7a5430",leaf:"#f2a3bf",leaf2:"#e5839f",trunk:"#6b4423",stone:"#c9c8bd",accent:"#e5484d",glow:"#ffe9a8",water:"#6bc4ea",metal:"#d9a441",ground:"#84c88c",sand:"#f0dcc0",sea:"#5fb3d6",sky:"#ffdfea"},
+  h:"sakura",t:"sakura"},
+ {k:"maple",ic:"🍁",nm:"Phong Thu",amb:"leaves",fn:["Cối xay gió","Đống lá","Lò sưởi ngoài trời"],fk:["windmill","leafpile","firepit"],fic:["🌀","🍂","🔥"],feo:[1.1,.9,.8],
+  c:{wall:"#e8d3ad",roof:"#8a4a2b",wood:"#6b4423",leaf:"#e0873a",leaf2:"#c94f2a",trunk:"#5b3b22",stone:"#b8ab97",accent:"#f2b34a",glow:"#ffd08a",water:"#7fb8c9",metal:"#a9783f",ground:"#a8c184",sand:"#e3d19b",sea:"#4f9fbe",sky:"#ffd9a8"},
+  h:"maple",t:"maple"},
+ {k:"desert",ic:"🌴",nm:"Ốc Đảo",amb:"sand",fn:["Giếng nước","Lều thương nhân","Xương rồng nở hoa"],fk:["well","tent","cactus"],fic:["💧","⛺","🌵"],feo:[1.1,1.2,.8],
+  c:{wall:"#d9a566",roof:"#a9783f",wood:"#8a6d5a",leaf:"#4fae62",leaf2:"#3f9b56",trunk:"#7a5430",stone:"#cbb88f",accent:"#e5484d",glow:"#ffe9a8",water:"#59c2d6",metal:"#c9a227",ground:"#e3c98d",sand:"#f2dfa8",sea:"#4bb0c9",sky:"#ffe9b8"},
+  h:"desert",t:"palm"},
+ {k:"ice",ic:"❄️",nm:"Băng Tuyết",amb:"snow",fn:["Người tuyết","Hồ băng","Cột đèn cực quang"],fk:["snowman","icelake","aurora"],fic:["☃️","🧊","🌌"],feo:[.9,2.0,.8],
+  c:{wall:"#eef6fb",roof:"#cfe4ef",wood:"#9bb6c4",leaf:"#5fae93",leaf2:"#bfe3f5",trunk:"#7d97a3",stone:"#d7e6ee",accent:"#4a7de0",glow:"#b8ffe8",water:"#9fe0f0",metal:"#cfd8de",ground:"#eaf5fb",sand:"#dbe9f0",sea:"#3f7f9c",sky:"#d8f0ff"},
+  h:"ice",t:"pine"},
+ {k:"tropic",ic:"🥥",nm:"Nhiệt Đới",amb:"waves",fn:["Thác nước","Cầu tre","Thuyền nhỏ"],fk:["waterfall","bridge","boat"],fic:["💦","🎋","🛶"],feo:[1.6,1.0,.9],
+  c:{wall:"#d8b276",roof:"#a9783f",wood:"#8fae52",leaf:"#3f9b56",leaf2:"#58bd6c",trunk:"#9a7b4f",stone:"#c3c0b0",accent:"#e8703a",glow:"#ffe9a8",water:"#3fd0c9",metal:"#b0894f",ground:"#7fd08a",sand:"#f5e2b0",sea:"#31c1b8",sky:"#c6f2f0"},
+  h:"tropic",t:"coconut"},
+ {k:"cloud",ic:"☁️",nm:"Mây Trời",amb:"clouds",fn:["Cầu vồng","Khinh khí cầu","Cối xay mây"],fk:["rainbow","balloon","windcloud"],fic:["🌈","🎈","🌀"],feo:[1.4,.9,.9],
+  c:{wall:"#fdfdff",roof:"#c9d8f2",wood:"#cfd8e6",leaf:"#bfe6ff",leaf2:"#d9c6f5",trunk:"#c3cfe0",stone:"#eef2f8",accent:"#f2b34a",glow:"#fff3c4",water:"#a8d8ff",metal:"#e3e9f0",ground:"#dff0e6",sand:"#f6f2e8",sea:"#bfe0f5",sky:"#e6f4ff"},
+  h:"cloud",t:"crystal"},
+ {k:"ocean",ic:"🐚",nm:"Đáy Biển",amb:"bubbles",fn:["Vườn rong","Đàn cá","Rương cổ"],fk:["seaweed","school","chest"],fic:["🌿","🐟","🗝️"],feo:[1.2,1.0,.8],
+  c:{wall:"#f0d9e6",roof:"#d8a0c0",wood:"#a5788f",leaf:"#3fbf8f",leaf2:"#e07a9a",trunk:"#9c6f86",stone:"#bfc9d6",accent:"#ffd54a",glow:"#a8f0e0",water:"#4fd0d8",metal:"#e0c060",ground:"#9fdcc4",sand:"#efe0c8",sea:"#2f8fb0",sky:"#bfeef5"},
+  h:"ocean",t:"coral"},
+ {k:"firefly",ic:"✨",nm:"Đom Đóm",amb:"fireflies",fn:["Nấm sáng","Lồng đèn","Đài quan sát sao"],fk:["glowshroom","starpond","observatory"],fic:["🍄","🏮","🔭"],feo:[.9,.8,1.1],
+  c:{wall:"#e0cfae",roof:"#7a5f9c",wood:"#6b5340",leaf:"#8fd07a",leaf2:"#b9e08a",trunk:"#5b4a38",stone:"#8f8fa6",accent:"#ffd54a",glow:"#c9ff9a",water:"#7fb0d8",metal:"#d9c07a",ground:"#6f9e6a",sand:"#c8bda0",sea:"#2b4a6b",sky:"#c9b8e6"},
+  h:"firefly",t:"moss"}
+];
+
+const BREEDS=[
+ {k:"cat-tabby",sp:"🐱",nm:"Mèo ta (cam vằn)",r:1,price:40,body:"#e08a3c",dark:"#c56f28",white:"#fbe6c8",ear:"sharp",tail:"long",pat:"stripes",size:.62,muzzle:.5,fluff:0,speed:1.15},
+ {k:"cat-calico",sp:"🐱",nm:"Mèo tam thể",r:1,price:50,body:"#f6f0e6",dark:"#4a4a4a",white:"#f6f0e6",ear:"sharp",tail:"long",pat:"patch",size:.6,muzzle:.45,fluff:0,speed:1.1},
+ {k:"cat-british",sp:"🐱",nm:"Mèo Anh lông ngắn",r:2,price:120,body:"#9aa6b2",dark:"#7f8b98",white:"#c6cfd8",ear:"sharp",tail:"puff",pat:"none",size:.68,muzzle:.2,fluff:1,speed:.9},
+ {k:"cat-siamese",sp:"🐱",nm:"Mèo Xiêm",r:2,price:120,body:"#f0e2cf",dark:"#6b4a35",white:"#f8efe2",ear:"up",tail:"long",pat:"points",size:.6,muzzle:.8,fluff:0,speed:1.25},
+ {k:"cat-persian",sp:"🐱",nm:"Mèo Ba Tư",r:3,price:300,body:"#efe0d0",dark:"#cbb49b",white:"#fff6ec",ear:"sharp",tail:"puff",pat:"none",size:.72,muzzle:.1,fluff:2,speed:.75},
+ {k:"cat-cloud",sp:"🐱",nm:"Mèo mây (ánh sao)",r:4,price:600,body:"#b9a8e6",dark:"#8d76c9",white:"#e6dcff",ear:"up",tail:"puff",pat:"glow",size:.66,muzzle:.4,fluff:1,speed:1.2},
+ {k:"dog-village",sp:"🐶",nm:"Chó ta (vàng)",r:1,price:40,body:"#d8a556",dark:"#a8763a",white:"#f0dcb8",ear:"up",tail:"long",pat:"none",size:.7,muzzle:.7,fluff:0,speed:1.35},
+ {k:"dog-corgi",sp:"🐶",nm:"Corgi",r:2,price:120,body:"#e0a55c",dark:"#b47c34",white:"#fbeedd",ear:"up",tail:"puff",pat:"patch",size:.62,muzzle:.6,fluff:0,speed:1.4},
+ {k:"dog-shiba",sp:"🐶",nm:"Shiba",r:2,price:120,body:"#e08a3c",dark:"#b8652a",white:"#fbeedd",ear:"up",tail:"curl",pat:"none",size:.68,muzzle:.65,fluff:1,speed:1.35},
+ {k:"dog-husky",sp:"🐶",nm:"Husky",r:3,price:300,body:"#a8b0ba",dark:"#6b7480",white:"#f2f5f8",ear:"up",tail:"curl",pat:"patch",size:.76,muzzle:.7,fluff:1,speed:1.5},
+ {k:"dog-poodle",sp:"🐶",nm:"Poodle",r:3,price:300,body:"#e8c6b8",dark:"#cfa393",white:"#f8e6dc",ear:"flop",tail:"puff",pat:"curl",size:.6,muzzle:.5,fluff:2,speed:1.2},
+ {k:"dog-cloud",sp:"🐶",nm:"Chó mây (ánh trăng)",r:4,price:600,body:"#c9d3e6",dark:"#94a5c4",white:"#eef3fb",ear:"up",tail:"curl",pat:"glow",size:.72,muzzle:.6,fluff:1,speed:1.5}
+];
+const FOODS=[
+ {k:"khat",ic:"🥣",nm:"Hạt / xương khô",price:3,aff:2},
+ {k:"ca",ic:"🐟",nm:"Cá khô / thịt thưởng",price:8,aff:5},
+ {k:"banh",ic:"🍪",nm:"Bánh thưởng",price:15,aff:10},
+ {k:"dacbiet",ic:"🍱",nm:"Bữa đặc biệt",price:40,aff:25}
+];
+const FRIEND=[0,20,50,100,180,300,480,720,1050,1500];
+const friendLv=xp=>{let i=0;while(i+1<FRIEND.length&&xp>=FRIEND[i+1])i++;return i+1};
+const NAMES=["Bơ","Mì","Cốm","Đậu","Kem","Tiêu","Xám","Nâu","Mực","Đen","Dâu","Sữa"];
+
+/* sinh đảo từ seed — mọi người chơi thấy cùng một đảo n */
+const hash=s=>{let h=2166136261>>>0;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619)>>>0}return h};
+const rand=seed=>{let a=seed>>>0;return()=>{a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}};
+const TOD=["Sáng","Trưa","Hoàng hôn","Đêm"];
+const edgeOf=(L,a)=>L.r*(1+.06*Math.sin(3*a+L.p1)+.04*Math.sin(5*a+L.p2));
+function genIsland(n){
+ const R=rand(hash("iso-"+n)), t=((n-1)%8+8)%8, lap=Math.floor((n-1)/8);
+ const L={n,t,lap,r:8+R()*3,p1:R()*6.283,p2:R()*6.283,tod:lap>0?Math.floor(R()*4):1,hue:lap>0?(R()-.5)*.12:0,lit:lap>0?(R()-.5)*.1:0,slots:[],decor:[]};
+ const ah=R()*6.283;
+ const add=(kind,ob,a,d)=>L.slots.push({kind,ob,x:d*Math.cos(a),z:d*Math.sin(a)});
+ add("house",1.85,ah,1.1+R()*.9);
+ const at=ah+2.3+R()*.9; add("tree",1.15,at,3.2+R()*1.4);
+ for(let i=0;i<3;i++){const a=ah+(i+1)*1.95+(R()-.5)*.5,d=clamp(4.8+R()*1.8,3,edgeOf(L,a)-2.6);add("f"+i,THEMES[t].feo[i],a,d)}
+ const dn=10+Math.floor(R()*8);
+ for(let i=0;i<dn;i++){const a=R()*6.283,d=1.5+R()*(L.r-2.4);L.decor.push({a,d,k:["rock","flower","bush"][Math.floor(R()*3)],s:.7+R()*.7})}
+ for(let it=0;it<60;it++){
+  let moved=false;
+  for(let i=0;i<L.slots.length;i++)for(let j=i+1;j<L.slots.length;j++){
+   const a=L.slots[i],b=L.slots[j],dx=b.x-a.x,dz=b.z-a.z,d=Math.hypot(dx,dz)||.01,need=a.ob+b.ob+.6;
+   if(d<need){const push=(need-d)/2,ux=dx/d,uz=dz/d;
+    a.x-=ux*push;a.z-=uz*push;b.x+=ux*push;b.z+=uz*push;moved=true}
+  }
+  for(const s of L.slots){const ang=Math.atan2(s.z,s.x)||0,dd=Math.hypot(s.x,s.z),max=edgeOf(L,ang)-s.ob-1.1;
+   if(dd>max){s.x=max*Math.cos(ang);s.z=max*Math.sin(ang)}}
+  if(!moved)break;
+ }
+ return L;
+}
+function walkable(L,x,z,mg){
+ const a=Math.atan2(z,x);
+ if(Math.hypot(x,z)>edgeOf(L,a)-.7-mg)return false;
+ for(const s of L.slots)if(Math.hypot(x-s.x,z-s.z)<s.ob+mg)return false;
+ return true;
+}
+function pickSpot(L,R,cx,cz){
+ for(let i=0;i<80;i++){const a=R()*6.283,d=R()*L.r*.88,x=d*Math.cos(a),z=d*Math.sin(a);if(walkable(L,x,z,.35))return{x,z}}
+ return{x:cx||0,z:cz||0};
+}
+
+/* ============ 2. TRẠNG THÁI (localStorage, chưa phải server) ============ */
+const today=()=>new Date().toLocaleDateString("sv-SE");
+function blank(){return{v:1,coins:0,day:today(),lesson:0,game:0,cur:1,unlocked:1,islands:{1:[0,0,0,0,0]},pets:[],pantry:{khat:0,ca:0,banh:0,dacbiet:0},nextId:1,eco:false,seen:FIRST_SEEN,ts:Date.now()}}
+const doneCount=s=>Object.keys(s.islands).filter(n=>s.islands[n].every(l=>l>=3)).length;
+function roll(s){
+ if(s.day!==today()){s.day=today();s.lesson=0;s.game=0;s.pets.forEach(p=>{p.meals=0;p.cares=0})}
+ const h=Math.max(0,(Date.now()-(s.ts||Date.now()))/3.6e6);
+ s.pets.forEach(p=>{p.sat=Math.max(30,p.sat-h*1.5);p.mood=Math.max(30,p.mood-h*.8)});
+ s.seen=clamp(FIRST_SEEN+doneCount(s),FIRST_SEEN,MAX_SEEN);
+ return s;
+}
+function load(){try{const o=JSON.parse(localStorage.getItem(LSK)||"null");if(o&&o.v===1)return roll(Object.assign(blank(),o))}catch(e){}return blank()}
+let S=load();
+function save(){S.ts=Date.now();try{localStorage.setItem(LSK,JSON.stringify(S))}catch(e){}}
+
+/* ============ 3. HÀNH ĐỘNG (trả {ok,text}, không tự ý trừ khi thiếu) ============ */
+const slotName=i=>i===0?"Nhà":i===1?"Cây":THEMES[genIsland(S.cur).t].fn[i-2];
+const slotIcon=i=>i===0?"🏠":i===1?"🌳":THEMES[genIsland(S.cur).t].fic[i-2];
+function tryUpgrade(st,n,i){
+ const arr=st.islands[n];if(!arr)return{ok:false,text:"Đảo này chưa mở."};
+ const lv=arr[i];if(lv>=3)return{ok:false,text:slotName(i)+" đã ở cấp tối đa (3)."};
+ const c=costOf(n,lv);
+ if(st.coins<c)return{ok:false,text:`Cần ${c} xu để nâng ${slotName(i)} lên cấp ${lv+1}. Bạn đang có ${st.coins} xu — còn thiếu ${c-st.coins}. Không có gì bị trừ.`};
+ return{ok:true,cost:c,text:`${slotName(i)} → cấp ${lv+1}`,to:lv+1};
+}
+function doUpgrade(i){
+ const p=tryUpgrade(S,S.cur,i);
+ if(!p.ok){msg(p.text);return}
+ confirmBox(p.text,`Trả ${p.cost} xu. Còn ${S.coins-p.cost} xu. Nâng cấp không bao giờ bị hoàn lại nhưng cũng không mất gì thêm.`,()=>{
+  S.coins-=p.cost;S.islands[S.cur][i]=p.to;
+  const arr=S.islands[S.cur];
+  if(arr.every(l=>l>=3)){
+   S.unlocked=Math.max(S.unlocked,S.cur+1);S.islands[S.cur+1]=S.islands[S.cur+1]||[0,0,0,0,0];
+   S.seen=clamp(FIRST_SEEN+doneCount(S),FIRST_SEEN,MAX_SEEN);
+   save();render();VISIT&&VISIT.grow(i);VISIT&&VISIT.celebrate();
+   msg(`🎉 Đảo ${S.cur} HOÀN CHỈNH! Mở đảo ${S.unlocked} — ${THEMES[genIsland(S.unlocked).t].ic} ${THEMES[genIsland(S.unlocked).t].nm}. Thú nhảy lên thuyền theo bạn, số chỗ thú ra đảo tăng lên ${S.seen}. Đảo cũ vẫn nguyên, ghé thăm bất cứ lúc nào.`);
+   return;
+  }
+  save();render();VISIT&&VISIT.grow(i);
+  msg(`Đã nâng ${slotName(i)} lên cấp ${p.to} (−${p.cost} xu). Còn ${S.coins} xu.`);
+ });
+}
+function earnLesson(){
+ const room=LESSON_CAP-S.lesson, amt=Math.min(18,room);
+ if(amt<=0){msg(`📖 Hôm nay nguồn học đã chạm trần ${LESSON_CAP} xu. Nghỉ bao lâu cũng không mất gì — mai lại có đủ 60.`);return}
+ S.coins+=amt;S.lesson+=amt;save();render();
+ msg(`📖 Một lượt học đủ điều kiện (6 câu mới đúng): +${amt} xu. Hôm nay ${S.lesson}/${LESSON_CAP} xu từ bài học. Ví: ${S.coins} xu.`);
+}
+function earnGame(){
+ const room=GAME_CAP-S.game, amt=Math.min(2+Math.floor(Math.random()*5),room);
+ if(amt<=0){msg(`🎮 Hôm nay nguồn game đã chạm trần ${GAME_CAP} xu (trần riêng để chơi game không "ăn" phần học).`);return}
+ S.coins+=amt;S.game+=amt;save();render();
+ msg(`🎮 Một ván hoàn thành, kết quả do server xác nhận (demo cộng ngẫu nhiên 2–6): +${amt} xu. Hôm nay ${S.game}/${GAME_CAP}. Ví: ${S.coins} xu.`);
+}
+function newDay(){S.day=today();S.lesson=0;S.game=0;S.pets.forEach(p=>{p.meals=0;p.cares=0});save();render();msg("⏱️ (demo) Đã sang ngày mới: trần xu về 0/60 học và 0/30 game, số bữa ăn mỗi thú về 0/3. Đảo, thú, xu đều giữ nguyên.");}
+function tryBuy(st,price,what){
+ if(st.coins<price)return{ok:false,text:`Cần ${price} xu cho ${what}. Bạn đang có ${st.coins} xu — thiếu ${price-st.coins}. Không có gì bị trừ.`};
+ return{ok:true,text:what,cost:price};
+}
+function adopt(bk,name){
+ const b=BREEDS.find(x=>x.k===bk);const p=tryBuy(S,b.price,`${b.sp} ${b.nm}`);
+ if(!p.ok){msg(p.text);return}
+ confirmBox(`Nhận nuôi ${b.sp} ${b.nm}`,`${b.price} xu · hạng ${"⭐".repeat(b.r)}. Tên: ${name||"(để trống hệ thống đặt)"}. Thú không bao giờ ốm, chết hay bỏ đi.`,()=>{
+  S.coins-=b.price;
+  S.pets.push({id:S.nextId++,breed:bk,name:(name||"").trim()||NAMES[Math.floor(Math.random()*NAMES.length)],xp:0,sat:70,mood:70,meals:0,cares:0});
+  save();render();msg(`🐾 ${S.pets[S.pets.length-1].name} về đảo ${S.cur}! ${S.pets.length} thú (hiển thị tối đa ${S.seen}, số còn lại "đang ngủ trong nhà" và thay phiên ra chơi).`);
+ });
+}
+function buyFood(fk,q){
+ const f=FOODS.find(x=>x.k===fk);const p=tryBuy(S,f.price*q,`${q}× ${f.nm}`);
+ if(!p.ok){msg(p.text);return}
+ S.coins-=f.price*q;S.pantry[fk]=(S.pantry[fk]||0)+q;save();render();
+ msg(`🍖 Đã mua ${q}× ${f.nm} (−${f.price*q} xu). Trong kho: ${S.pantry[fk]}. Xu đổi thành đồ ăn, không mất gì cả.`);
+}
+function feed(id,fk){
+ const p=S.pets.find(x=>x.id===id), f=FOODS.find(x=>x.k===fk);
+ if(!p||!f)return;
+ if(p.meals>=MEALS){msg(`${p.name} đã ăn đủ ${MEALS} bữa hôm nay. Vui vẻ chờ sang ngày mới — đói chỉ làm thú buồn ngủ, không phạt gì.`);return}
+ if((S.pantry[fk]||0)<=0){msg(`Kho hết ${f.nm}. Vào tab 🍖 Thức ăn mua bằng xu (giá ${f.price} xu).`);return}
+ S.pantry[fk]--;p.meals++;p.sat=Math.min(100,p.sat+25);p.mood=Math.min(100,p.mood+6);p.xp+=f.aff;
+ save();render();VISIT&&VISIT.eat(id,fk);
+ msg(`🍖 ${p.name} ăn ${f.nm}: No ${Math.round(p.sat)}/100 · Vui ${Math.round(p.mood)}/100 · +${f.aff} thân thiết (cấp ${friendLv(p.xp)}/10).`);
+}
+function care(id,kind){
+ const p=S.pets.find(x=>x.id===id);if(!p)return;
+ if(p.cares>=CARES){msg(`${p.name} hôm nay đã được vuốt ve/chơi ${CARES} lần — đủ rồi, mai chơi tiếp (miễn phí, không thưởng xu).`);return}
+ p.cares++;p.mood=Math.min(100,p.mood+(kind==="play"?8:5));p.xp+=1;
+ save();render();VISIT&&VISIT[kind==="play"?"play":"react"](id);
+ msg(kind==="play"?`🎾 Bạn ném bóng, ${p.name} chạy đi tha về. Vui ${Math.round(p.mood)}/100.`:`🤚 ${p.name} dụi vào tay bạn. Vui ${Math.round(p.mood)}/100 · thân thiết cấp ${friendLv(p.xp)}.`);
+}
+function travel(n){
+ if(n>S.unlocked){msg(`Đảo ${n} còn khóa. Hoàn chỉnh đảo ${S.cur} (đủ 5 ô cấp 3) để mở tiếp — không có cách nào tắt.`);return}
+ if(n===S.cur){msg("Bạn đang đứng ở đảo này.");return}
+ const th=THEMES[genIsland(n).t];
+ confirmBox(`Du thuyền sang đảo ${n}`,`${th.ic} ${th.nm}. Mọi đảo đã mở giữ nguyên tiến độ; thú đi theo bạn.`,()=>{
+  S.cur=n;S.islands[n]=S.islands[n]||[0,0,0,0,0];save();render();
+  msg(`⛵ Đã sang đảo ${n} · ${th.ic} ${th.nm}. Đảo này cần ${islandCost(n)} xu để hoàn chỉnh (hệ số ${factor(n).toFixed(2)} so với đảo 1).`);
+ });
+}
+
+/* ============ 4. GIAO DIỆN DANH SÁCH CHỮ (bàn phím + trình đọc màn hình) ============ */
+const TABS=[["island","🏝️ Đảo của tôi"],["map","🗺️ Quần đảo"],["home","🐾 Chuồng thú"],["shop","🛒 Cửa hàng thú"],["food","🍖 Thức ăn"],["coll","📚 Bộ sưu tập"]];
+let TAB="island", VISIT=null;
+$("tabs").innerHTML=TABS.map(t=>`<button role="tab" data-tab="${t[0]}" aria-selected="false">${t[1]}</button>`).join("");
+[...$("tabs").children].forEach(b=>b.onclick=()=>{TAB=b.dataset.tab;render()});
+function bar(v,m){return`<div class="bar" role="img" aria-label="${Math.round(v)} trên ${m}"><i style="width:${clamp(v/m*100,0,100)}%"></i></div>`}
+function render(){
+ $("chipCoin").textContent=`🪙 ${S.coins} xu`;
+ $("chipDay").textContent=`📖 ${S.lesson}/${LESSON_CAP} · 🎮 ${S.game}/${GAME_CAP} hôm nay`;
+ $("chipSeen").textContent=`🐾 ${S.pets.length} thú · ra đảo ${Math.min(S.seen,S.pets.length)}/${S.seen}`;
+ [...$("tabs").children].forEach(b=>b.setAttribute("aria-selected",String(b.dataset.tab===TAB)));
+ $("panel").innerHTML=({island:pIsland,map:pMap,home:pHome,shop:pShop,food:pFood,coll:pColl})[TAB]();
+ wire();
+ VISIT&&VISIT.sync();
+}
+function pIsland(){
+ const L=genIsland(S.cur), T=THEMES[L.t], arr=S.islands[S.cur];
+ return`<h2>${T.ic} Đảo ${S.cur} · ${T.nm}${L.lap>0?" · biến thể "+TOD[L.tod]:" · gốc"}</h2>
+ <p class="mute">Bán kính ${L.r.toFixed(1)} · seed ${hash("iso-"+S.cur)} (mọi người chơi thấy cùng đảo ${S.cur}). 5 ô cấp 3 = hoàn chỉnh → mở đảo ${S.cur+1}. Cả đảo: <b>${islandCost(S.cur)} xu</b>, ≈ ${(islandCost(S.cur)/45).toFixed(1)} ngày chơi thường.</p>
+ <div class="plots">${arr.map((lv,i)=>{const c=lv<3?costOf(S.cur,lv):0;
+  return`<button data-up="${i}" ${lv<3&&S.coins>=c?"":"disabled"} aria-label="${slotName(i)}, cấp ${lv} trên 3">${slotIcon(i)} ${slotName(i)} · C${lv}/3<br><small>${lv>=3?"Tối đa":"Nâng "+c+" xu"+(S.coins<c?" · thiếu "+(c-S.coins):"")}</small></button>`}).join("")}</div>
+ <div class="ctl">
+  <button class="pri" id="e1">📖 Giả lập 1 lượt học (+18)</button>
+  <button id="e2">🎮 Giả lập 1 ván game (+2…6)</button>
+  <button id="e3">⏱️ Sang ngày mới</button>
+  <button id="e5">⛵ Sang đảo ${S.cur+1}</button>
+  <button id="e6">📣 Gọi thú</button>
+  <button id="e4">🧹 Reset demo</button></div>
+ <p class="mute">Demo chưa có server nên có nút giả lập; bản thật trừ/xu qua <code>/api/xu</code> và sổ cái <code>xu_ledger</code>. Bấm thú trong cảnh 3D chỉ để chào — <b>không thưởng</b>.</p>
+ <button id="ck">🧪 Tự kiểm tra luật</button><div class="chk" id="chk"></div>`;
+}
+function pMap(){
+ let h=`<h2>🗺️ Bản đồ quần đảo</h2><p class="mute">Catalog ${THEMES.length} chủ đề thiết kế tay, sinh biến thể theo seed nên đảo 9, 50, 500… vẫn có chủ đề + màu + giờ + hình dáng riêng. Đã mở: ${S.unlocked}. Không có đảo cuối cùng.</p><div class="grid">`;
+ for(let n=1;n<=S.unlocked+2;n++){
+  const L=genIsland(n),T=THEMES[L.t],arr=S.islands[n]||[0,0,0,0,0],lv=arr.reduce((s,x)=>s+x,0),full=lv===15,locked=n>S.unlocked;
+  h+=`<div class="item${locked?" locked":""}"><h3>${T.ic} Đảo ${n} · ${T.nm}</h3>
+   <div class="mute">${locked?"🔒 cần hoàn chỉnh đảo trước":TOD[L.tod]+" · R"+L.r.toFixed(1)} · ${lv}/15 ô</div>${bar(lv,15)}
+   <div class="mute">${full?"🏆 hoàn chỉnh — đảo cũ vẫn ghé được":"cả đảo "+islandCost(n)+" xu"}</div>
+   <button data-go="${n}" ${locked?"disabled":""}>${n===S.cur?"Bạn đang ở đây":"Đến đảo "+n}</button></div>`;
+ }
+ return h+"</div>";
+}
+function pHome(){
+ if(!S.pets.length)return`<h2>🐾 Chuồng thú</h2><p class="mute">Chưa có thú nào. Sang tab 🛒 Cửa hàng thú — giá niêm yết từng giống, không có hộp quà ngẫu nhiên.</p>`;
+ let h=`<h2>🐾 Chuồng thú (${S.pets.length})</h2><p class="mute">No bụng và Vui vẻ có <b>sàn 30</b>: đói chỉ làm thú buồn ngủ, không phạt. Thân thiết chỉ tăng (ngưỡng ${FRIEND.join(", ")} XP) và mở phụ kiện ở cấp 3 · 5 · 7.</p><div class="grid">`;
+ for(const p of S.pets){
+  const b=BREEDS.find(x=>x.k===p.breed),fl=friendLv(p.xp);
+  h+=`<div class="item"><h3>${b.sp} ${p.name} <small>${"⭐".repeat(b.r)}</small></h3>
+   <div class="mute">${b.nm} · thân thiết ${fl}/10 · bữa hôm nay ${p.meals}/${MEALS}</div>
+   No bụng ${Math.round(p.sat)}/100${bar(p.sat,100)}Vui vẻ ${Math.round(p.mood)}/100${bar(p.mood,100)}
+   ${FOODS.map(f=>`<button data-feed="${p.id}:${f.k}" ${(p.meals<MEALS&&(S.pantry[f.k]||0)>0)?"":"disabled"}>${f.ic} +${f.aff}</button>`).join(" ")}
+   <div class="ctl" style="margin-top:6px"><button data-care="${p.id}:pet">🤚 Vuốt ve</button><button data-care="${p.id}:play">🎾 Chơi bóng</button></div></div>`;
+ }
+ return h+"</div>";
+}
+function pShop(){
+ const star="⭐";
+ return`<h2>🛒 Cửa hàng thú</h2><p class="mute">12 giống, giá niêm yết theo hạng. Độ hiếm chỉ làm thú <b>lạ hơn về hình</b>, không con nào kiếm thêm xu hay giúp học.</p><div class="grid">
+ ${BREEDS.map(b=>`<div class="item"><h3>${b.sp} ${b.nm}</h3><div class="mute">${star.repeat(b.r)} · ${b.price} xu · tốc ${b.speed.toFixed(2)}</div>
+  <input type="text" data-nm="${b.k}" placeholder="Tên thú (tùy chọn)" aria-label="Tên cho ${b.nm}">
+  <button class="pri" data-adopt="${b.k}" ${S.coins>=b.price?"":"disabled"}>Nhận nuôi ${b.price} xu${S.coins<b.price?" · thiếu "+(b.price-S.coins):""}</button></div>`).join("")}</div>`;
+}
+function pFood(){
+ return`<h2>🍖 Cửa hàng thức ăn</h2><p class="mute">Mỗi thú tối đa ${MEALS} bữa/ngày; vuốt ve và chơi bóng miễn phí, ${CARES} lần/ngày.</p><div class="grid">
+ ${FOODS.map(f=>`<div class="item"><h3>${f.ic} ${f.nm}</h3><div class="mute">${f.price} xu · +${f.aff} thân thiết · trong kho: ${S.pantry[f.k]||0}</div>
+  <button data-food="${f.k}:1" ${S.coins>=f.price?"":"disabled"}>Mua 1</button> <button data-food="${f.k}:5" ${S.coins>=f.price*5?"":"disabled"}>Mua 5</button></div>`).join("")}</div>`;
+}
+function pColl(){
+ return`<h2>📚 Bộ sưu tập</h2><p class="mute">Giống chưa có hiển thị mờ nhưng vẫn mua được bình thường (không có ngẫu nhiên).</p><div class="grid">
+ ${BREEDS.map(b=>{const have=S.pets.filter(p=>p.breed===b.k);
+  return`<div class="item${have.length?"":" locked"}"><h3>${b.sp} ${b.nm}</h3><div class="mute">${"⭐".repeat(b.r)} · ${have.length?"đã nuôi ×"+have.length+" ("+have.map(x=>x.name).join(", ")+")":"chưa có"}</div></div>`}).join("")}</div>`;
+}
+function wire(){
+ const q=(sel,fn)=>$("panel").querySelectorAll(sel).forEach(e=>e.onclick=()=>fn(e));
+ q("[data-up]",e=>doUpgrade(+e.dataset.up));
+ const g=id=>$(id);
+ if(g("e1"))g("e1").onclick=earnLesson; if(g("e2"))g("e2").onclick=earnGame; if(g("e3"))g("e3").onclick=newDay;
+ if(g("e6"))g("e6").onclick=()=>{if(VISIT&&VISIT.call)VISIT.call();else msg("Máy này không chạy được WebGL nên thú không hiện ra — mọi bảng bằng bàn phím vẫn dùng được bình thường.")};
+ if(g("e5"))g("e5").onclick=()=>travel(S.cur+1); if(g("e4"))g("e4").onclick=()=>confirmBox("Xóa dữ liệu demo?","Chỉ xóa localStorage của trang này; bài học và CSDL thật không bị đụng.",()=>{localStorage.removeItem(LSK);S=load();render();msg("Đã reset. Đảo 1 bắt đầu với 0 xu và 5 ô đất trống.")});
+ if(g("ck"))g("ck").onclick=runChecks;
+ q("[data-go]",e=>travel(+e.dataset.go));
+ q("[data-adopt]",e=>adopt(e.dataset.adopt,($("panel").querySelector(`[data-nm="${e.dataset.adopt}"]`)||{}).value));
+ q("[data-food]",e=>{const[a,b]=e.dataset.food.split(":");buyFood(a,+b)});
+ q("[data-feed]",e=>{const[a,b]=e.dataset.feed.split(":");feed(+a,b)});
+ q("[data-care]",e=>{const[a,b]=e.dataset.care.split(":");care(+a,b)});
+}
+
+/* ============ 5. TỰ KIỂM TRA LUẬT (chạy trong trang) ============ */
+function runChecks(){
+ const out=[],add=(n,ok,d)=>out.push(`${ok?"✅":"❌"} ${n}${d?" — "+d:""}`);
+ add("Đảo 1 đủ 5 ô cấp 3 = 425 xu",islandCost(1)===425,islandCost(1)+" xu");
+ add("Đảo 15 chạm trần hệ số 3,00 = 1.275 xu",islandCost(15)===1275,islandCost(15)+" xu");
+ add("Hệ số không bao giờ vượt 3,00",factor(9999)===3,factor(9999));
+ add("Chi phí tăng dần theo đảo",islandCost(2)>islandCost(1)&&islandCost(5)>islandCost(2),`${islandCost(1)} < ${islandCost(2)} < ${islandCost(5)}`);
+ let same=true;for(let n=1;n<=13;n++)if(JSON.stringify(genIsland(n))!==JSON.stringify(genIsland(n)))same=false;
+ add("Đảo n dựng từ seed luôn giống nhau (n=1…13)",same);
+ let seen={};for(let n=1;n<=16;n++){const L=genIsland(n),sig=L.t+L.tod+L.r.toFixed(2);seen[sig]=1}
+ add("16 đảo đầu không trùng nguyên bộ hình (chủ đề + giờ + bán kính)",Object.keys(seen).length>=12,Object.keys(seen).length+" kiểu khác nhau");
+ const L=genIsland(7),R=rand(hash("walk-7"));let bad=0;
+ for(let i=0;i<1e4;i++){const p=pickSpot(L,R);if(!walkable(L,p.x,p.z,.3))bad++}
+ add("10.000 điểm đi bộ đều trong đảo và tránh nhà/cây/công trình",bad===0,bad+" điểm hỏng");
+ let s=70,m=70;for(let h=0;h<9e3;h++){s=Math.max(30,s-1.5);m=Math.max(30,m-.8)}
+ add("No bụng / Vui vẻ không bao giờ dưới sàn 30",s===30&&m===30,`${s}/${m}`);
+ const t0=blank();t0.coins=1;t0.islands={1:[0,0,0,0,0]};
+ add("Không đủ xu → từ chối, ví không đổi",!tryUpgrade(t0,1,0).ok&&t0.coins===1);
+ add("Thú chỉ ăn tối đa 3 bữa/ngày",MEALS===3&&CARES===5);
+ add("Trần xu: học 60, game 30 (tổng 90)",LESSON_CAP===60&&GAME_CAP===30);
+ $("chk").innerHTML="<h2>Kết quả tự kiểm tra</h2>"+out.map(x=>`<div>${x}</div>`).join("");
+ msg(`🧪 ${out.filter(x=>x[0]==="✅").length}/${out.length} mục đạt. ${out.some(x=>x[0]==="❌")?"Có mục hỏng — xem danh sách bên dưới.":"Luật trong demo khớp README."}`);
+}
+
+/* ============ 6. CẢNH 3D ============ */
+if(!window.THREE){$("err").hidden=false}
+else try{
+const T=D3.T,{mat,put,B,K,Sp,Ro}=D3,Cy=D3.Cy;
+const shifc=(hex,hu,li)=>{const c=new T.Color(hex);c.offsetHSL(hu,0,li);return"#"+c.getHexString()};
+const shiftPal=(c,hu,li)=>{const o={};for(const k in c)o[k]=k==="sea"||k==="sky"?c[k]:shifc(c[k],hu,li);return o};
+
+/* ---- nhà theo chủ đề (3 cấp) ---- */
+const HB={
+ sakura(g,P,lv){if(lv===1){B(g,.7,.4,.6,P.wall,0,0,0);K(g,.66,.5,P.roof,0,.15,0,4).rotation.y=Math.PI/4}
+  if(lv===2){B(g,1.15,.8,1,P.wall,0,0,0);Ro(g,1.4,.62,1.1,P.roof,0,.8,0);B(g,.25,.45,.06,P.wood,0,0,.51);[-.37,.37].forEach(x=>B(g,.2,.2,.06,P.glow,x,.3,.52,{emissive:P.glow,emissiveIntensity:.35}))}
+  if(lv===3){B(g,1.5,1.05,1.2,P.wall,0,0,0);Ro(g,1.75,.72,1.3,P.roof,0,1.05,0);B(g,.72,.72,.75,P.wall,.98,0,.08);Ro(g,.9,.42,.85,P.roof,.98,.72,.08);B(g,.3,.55,.07,P.wood,-.1,0,.62);[-.5,.45].forEach(x=>B(g,.24,.26,.06,P.glow,x,.5,.63,{emissive:P.glow,emissiveIntensity:.35}));Cy(g,.1,.12,.9,P.stone,-.95,0,.7,10);Sp(g,.17,P.accent,-.95,1.05,.7)}},
+ maple(g,P,lv){if(lv===1){B(g,.75,.5,.65,P.wall,0,0,0);K(g,.62,.45,P.roof,0,.2,0,4).rotation.y=Math.PI/4}
+  if(lv===2){B(g,1.2,.85,1,P.wall,0,0,0);Ro(g,1.45,.65,1.1,P.roof,0,.85,0);B(g,.22,.7,.22,P.stone,.45,.75,-.3);B(g,.25,.45,.06,P.wood,0,0,.51);[-.38,.38].forEach(x=>B(g,.2,.2,.06,P.glow,x,.32,.52,{emissive:P.glow,emissiveIntensity:.4}))}
+  if(lv===3){B(g,1.6,1.15,1.3,P.wall,0,0,0);Ro(g,1.9,.8,1.4,P.roof,0,1.15,0);B(g,.3,.9,.3,P.stone,.6,1.0,-.4);B(g,.32,.5,.07,P.wood,0,0,.66);[-.6,-.1,.5].forEach(x=>B(g,.22,.26,.06,P.glow,x,.55,.67,{emissive:P.glow,emissiveIntensity:.4}));B(g,.55,.5,.5,P.wood,-1.05,0,.15);Sp(g,.2,P.accent,-1.05,.6,.15)}},
+ desert(g,P,lv){if(lv===1){Cy(g,.5,.55,.5,P.wall,0,0,0,10);K(g,.5,.35,P.roof,0,.5,0,10)}
+  if(lv===2){Cy(g,.75,.8,.85,P.wall,0,0,0,12);K(g,.8,.5,P.roof,0,.85,0,12);B(g,.24,.4,.06,P.wood,0,0,.8);B(g,.3,.22,.06,P.glow,.45,.3,.6,{emissive:P.glow,emissiveIntensity:.3})}
+  if(lv===3){B(g,1.5,.9,1.2,P.wall,0,0,0);for(let k=0;k<3;k++)Cy(g,.28,.3,.5,P.wall,-.5+k*.5,.9,.0,10);B(g,1.6,.08,.16,P.roof,0,.9,0);B(g,.3,.55,.07,P.wood,.1,0,.61);[-.5,.6].forEach(x=>B(g,.24,.24,.06,P.glow,x,.4,.62,{emissive:P.glow,emissiveIntensity:.3}));Cy(g,.08,.1,1.1,P.stone,-1.1,0,.5,8);Sp(g,.14,P.accent,-1.1,1.2,.5)}},
+ ice(g,P,lv){if(lv===1){const e=put(g,new T.SphereGeometry(.62,12,8,0,6.283,0,1.4),mat(P.wall));e.position.y=.05}
+  if(lv===2){const e=put(g,new T.SphereGeometry(.95,14,9,0,6.283,0,1.5),mat(P.wall,{roughness:.4}));e.position.y=.05;B(g,.3,.4,.5,P.wood,0,0,.75)}
+  if(lv===3){const e=put(g,new T.SphereGeometry(1.25,16,10,0,6.283,0,1.5),mat(P.wall,{roughness:.35}));e.position.y=.05;B(g,.35,.5,.6,P.wood,0,0,.95);[0,1,2].forEach(k=>{const r=new T.Mesh(new T.TorusGeometry(.5+k*.35,.05,8,18),mat(P.stone));r.rotation.x=Math.PI/2;r.position.set(0,.35+k*.4,.0);g.add(r)});Sp(g,.1,P.glow,0,1.35,0,{emissive:P.glow,emissiveIntensity:.6})}},
+ tropic(g,P,lv){if(lv===1){for(let k=0;k<4;k++)Cy(g,.06,.06,.5,P.wood,k?.5:-.5,0,k>1?.35:-.35,6);B(g,1,.08,.8,P.wall,0,.5,0)}
+  if(lv===2){for(let k=0;k<6;k++)Cy(g,.07,.07,.8,P.wood,(k%3-1)*.55,0,(k>2?1:-1)*.4,6);B(g,1.4,.12,1.1,P.wall,0,.8,0);B(g,1.1,.55,.85,P.wall,0,.92,0);Ro(g,1.5,.5,1.1,P.roof,0,1.47,0);B(g,.24,.4,.06,P.wood,0,.92,.45)}
+  if(lv===3){for(let k=0;k<9;k++)Cy(g,.08,.08,1.1,P.wood,((k%3)-1)*.62,0,((k>5?1:k>2?-1:0))*.5,6);B(g,1.9,.14,1.4,P.wall,0,1.1,0);B(g,1.6,.75,1.15,P.wall,0,1.24,0);Ro(g,2.1,.6,1.4,P.roof,0,1.99,0);[-.55,.55].forEach(x=>B(g,.26,.3,.06,P.glow,x,1.4,.6,{emissive:P.glow,emissiveIntensity:.35}));B(g,.3,.5,.07,P.wood,0,1.15,.6);Cy(g,.5,.55,.12,P.leaf,-1.4,0,.5,10)}},
+ cloud(g,P,lv){if(lv===1){Cy(g,.5,.55,.45,P.wall,0,0,0,12);K(g,.55,.4,P.roof,0,.45,0,12)}
+  if(lv===2){const e=put(g,new T.SphereGeometry(.85,16,10),mat(P.wall));e.position.y=.5;e.scale.set(1,.8,1);B(g,.28,.42,.06,P.wood,0,.2,.78);K(g,.35,.5,P.roof,0,1.25,0,10)}
+  if(lv===3){const e=put(g,new T.SphereGeometry(1.2,18,12),mat(P.wall));e.position.y=.7;e.scale.set(1.1,.9,1.1);B(g,.32,.5,.07,P.wood,0,.35,1.05);[-.6,.6].forEach(x=>{const w=Sp(g,.18,P.glow,x,.9,1.0);w.material=mat(P.glow,{emissive:P.glow,emissiveIntensity:.4})});K(g,.45,.6,P.roof,0,1.8,0,12);Cy(g,.06,.06,.5,P.metal,0,2.3,0,8);Sp(g,.12,P.accent,0,2.6,0,{emissive:P.accent,emissiveIntensity:.4})}},
+ ocean(g,P,lv){if(lv===1){const s=put(g,new T.SphereGeometry(.6,14,10),mat(P.wall));s.scale.set(1,.85,.8);K(g,.4,.4,P.roof,0,.5,-.3,8)}
+  if(lv===2){const s=put(g,new T.SphereGeometry(.95,16,12),mat(P.wall));s.scale.set(1.05,.95,.9);for(let k=0;k<4;k++)K(g,.2,.5,P.roof,-.5+k*.34,.6,.55,8);B(g,.28,.45,.06,P.wood,0,0,.85);Sp(g,.14,P.glow,.5,.7,.5,{emissive:P.glow,emissiveIntensity:.4})}
+  if(lv===3){const s=put(g,new T.SphereGeometry(1.3,18,12),mat(P.wall));s.scale.set(1.15,1.05,1.0);for(let k=0;k<6;k++){const a=k/6*6.283;K(g,.22,.62,P.roof,Math.cos(a)*.75,.8,Math.sin(a)*.75,8)}Cy(g,.5,.7,.3,P.roof,0,1.3,0,14);B(g,.32,.55,.07,P.wood,0,0,1.1);[-.55,.55].forEach(x=>Sp(g,.15,P.glow,x,.75,1.0,{emissive:P.glow,emissiveIntensity:.5}))}},
+ firefly(g,P,lv){if(lv===1){Cy(g,.45,.5,.4,P.wall,0,0,0,10);Sp(g,.55,P.roof,0,.45,0).scale.set(1,.6,1)}
+  if(lv===2){Cy(g,.55,.65,.8,P.wall,0,0,0,12);Sp(g,.9,P.roof,0,.8,0).scale.set(1,.62,1);[-.3,.3].forEach(x=>B(g,.16,.2,.05,P.glow,x,.35,.6,{emissive:P.glow,emissiveIntensity:.5}));for(let k=0;k<4;k++)Sp(g,.1,P.glow,(k%2?1:-1)*.6,.5+k*.1,(k>1?1:-1)*.5,{emissive:P.glow,emissiveIntensity:.7})}
+  if(lv===3){Cy(g,.7,.9,1.2,P.wall,0,0,0,14);Sp(g,1.25,P.roof,0,1.2,0).scale.set(1,.6,1);[-.4,.4].forEach(x=>B(g,.2,.28,.06,P.glow,x,.5,.72,{emissive:P.glow,emissiveIntensity:.5}));B(g,.26,.5,.06,P.wood,0,0,.86);for(let k=0;k<7;k++){const a=k/7*6.283;Sp(g,.13,P.glow,Math.cos(a)*.95,1.55,Math.sin(a)*.95,{emissive:P.glow,emissiveIntensity:.7})}}}
+};
+/* ---- cây theo chủ đề ---- */
+const TB={
+ sakura(g,P,lv){const s=.6+lv*.45;Cy(g,.12*s,.16*s,1.1*s,P.trunk,0,0,0,10);for(let k=0;k<3;k++)Sp(g,(.62-.12*k)*s,P.leaf,k?.35*s*(k%2?1:-1):0,1.0*s+k*.34*s,k>1?-.3*s:0);Sp(g,.3*s,P.leaf2,-.3*s,1.25*s,.3*s)},
+ maple(g,P,lv){const s=.6+lv*.45;Cy(g,.13*s,.17*s,1.2*s,P.trunk,0,0,0,10);K(g,.85*s,1.0*s,P.leaf,0,1.0*s,0,9);K(g,.62*s,.85*s,P.leaf2,0,1.55*s,0,9);[-1,1].forEach(k=>K(g,.4*s,.6*s,P.leaf,k*.6*s,.9*s,k*.2*s,8))},
+ palm(g,P,lv){const s=.6+lv*.45;for(let k=0;k<4;k++)Cy(g,.09*s,.11*s,.7*s,P.trunk,0,.55*k*s,0,8);Sp(g,.22*s,P.wall,0,2.0*s,0);for(let k=0;k<6;k++){const a=k/6*6.283;const l=Sp(g,.5*s,P.leaf,Math.cos(a)*.5*s,2.05*s,Math.sin(a)*.5*s);l.scale.set(1.5,.16,.5);l.rotation.y=-a}for(let k=0;k<2;k++)Sp(g,.08*s,P.trunk,.15*s,1.95*s,k?.15:-.15)},
+ pine(g,P,lv){const s=.6+lv*.45;Cy(g,.1*s,.13*s,.6*s,P.trunk,0,0,0,8);K(g,.8*s,1.0*s,P.leaf,0,.5*s,0,9);K(g,.6*s,.85*s,P.leaf,0,1.1*s,0,9);K(g,.4*s,.7*s,P.leaf,0,1.65*s,0,9);for(let k=0;k<3;k++)Sp(g,.16*s,P.leaf2,(k-1)*.4*s,1.0-k*.3*s,.35*s)},
+ coconut(g,P,lv){const s=.6+lv*.45;for(let k=0;k<5;k++)Cy(g,.1*s,.12*s,.5*s,P.trunk,0,.45*k*s,k*.03*s,8);Sp(g,.26*s,P.wall,0,2.15*s,.05*s);for(let k=0;k<7;k++){const a=k/7*6.283;const l=Sp(g,.58*s,P.leaf,Math.cos(a)*.55*s,2.2*s,Math.sin(a)*.55*s);l.scale.set(1.6,.14,.45);l.rotation.y=-a}for(let k=0;k<3;k++)Sp(g,.11*s,P.trunk,Math.cos(k*2)*.18*s,2.0*s,Math.sin(k*2)*.18*s)},
+ crystal(g,P,lv){const s=.6+lv*.45;Cy(g,.14*s,.2*s,.7*s,P.stone,0,0,0,6);for(let k=0;k<5;k++){const a=k/5*6.283;const c=K(g,.16*s,.9*s,P.leaf,Math.cos(a)*.28*s,.5*s,Math.sin(a)*.28*s,6,{emissive:P.glow,emissiveIntensity:.35});c.rotation.z=Math.cos(a)*.35;c.rotation.x=-Math.sin(a)*.35}K(g,.24*s,1.1*s,P.leaf2,0,.9*s,0,6,{emissive:P.glow,emissiveIntensity:.4})},
+ coral(g,P,lv){const s=.6+lv*.45;Cy(g,.2*s,.3*s,.8*s,P.wall,0,0,0,8);for(let k=0;k<6;k++){const a=k/6*6.283;const r=Cy(g,.06*s,.1*s,.9*s,P.leaf,Math.cos(a)*.3*s,.7*s,Math.sin(a)*.3*s,7);r.rotation.z=Math.cos(a)*.4;r.rotation.x=-Math.sin(a)*.4;Sp(g,.12*s,P.leaf2,r.position.x,.7*s+r.position.y*.7,r.position.z)}for(let k=0;k<3;k++)Sp(g,.1*s,P.accent,(k-1)*.3*s,1.3*s,.2*s,{emissive:P.glow,emissiveIntensity:.4})},
+ moss(g,P,lv){const s=.6+lv*.45;Cy(g,.22*s,.32*s,1.1*s,P.trunk,0,0,0,10);K(g,1.0*s,.9*s,P.leaf,0,1.05*s,0,10);K(g,.75*s,.75*s,P.leaf2,0,1.55*s,0,10);for(let k=0;k<5;k++){const a=k/5*6.283;Sp(g,.1*s,P.glow,Math.cos(a)*.7*s,.95,Math.sin(a)*.7*s,{emissive:P.glow,emissiveIntensity:.8})}Sp(g,.3*s,P.leaf,-.6*s,.3*s,.4*s)}
+};
+/* ---- 24 công trình riêng (3 cấp mỗi cái) ---- */
+const FN={
+ torii(g,P,lv){const h=.7+lv*.5,w=.7+lv*.45;for(let k=0;k<2;k++)Cy(g,.09,.1,h,P.accent,(k?1:-1)*w,0,0,8);B(g,w*2+.3,.12,.16,P.accent,0,h*.85,0);if(lv>1)B(g,w*2+.6,.1,.18,P.roof,0,h+0.05,0);if(lv>2){B(g,.5,.16,.1,P.wood,0,h*.55,0);Cy(g,.2,.2,.1,P.stone,0,0,w+.3,10);Cy(g,.2,.2,.1,P.stone,0,0,-w-.3,10)}},
+ koi(g,P,lv){const r=.9+lv*.5;const w=Cy(g,r,r,.16,P.water,0,-.02,0,26,{roughness:.15,emissive:"#2a7fa8",emissiveIntensity:.25});if(lv>1)for(let k=0;k<lv;k++){const a=k*2.1;Sp(g,.12,k%2?"#e5484d":"#fff",Math.cos(a)*r*.6,.05,Math.sin(a)*r*.6)}if(lv>2){Cy(g,.3,.35,.2,P.stone,r*.5,0,-r*.4,10);Sp(g,.1,P.leaf,r*.5,.3,-r*.4)}},
+ lantern(g,P,lv){const h=.7+lv*.35;Cy(g,.16,.22,.18,P.stone,0,0,0,10);Cy(g,.06,.06,h,P.stone,0,.18,0,8);const b=Sp(g,.22+lv*.03,P.glow,0,h+.2,0,{emissive:P.glow,emissiveIntensity:.7});K(g,.3,.25,P.stone,0,h+.4,0,8);if(lv>2){Cy(g,.14,.14,.14,P.glow,-.7,.7,0,8).material=mat(P.glow,{emissive:P.glow,emissiveIntensity:.6});Cy(g,.14,.14,.14,P.glow,.7,.7,0,8).material=mat(P.glow,{emissive:P.glow,emissiveIntensity:.6})}},
+ windmill(g,P,lv){const h=1.1+lv*.6;Cy(g,.35,.5,h,P.wall,0,0,0,12);K(g,.5,.45,P.roof,0,h,0,10);if(lv>1)for(let k=0;k<4;k++){const a=k/4*6.283;B(g,.1,.9,.06,P.wood,Math.cos(a)*.45,h*.85,Math.sin(a)*.45).rotation.z=a}if(lv>2){Cy(g,.08,.08,.14,P.metal,0,h*.85,.6,8);B(g,.4,.3,.05,P.wood,0,0,.52)}},
+ leafpile(g,P,lv){for(let k=0;k<3+lv*2;k++){const a=k*2.4,d=.15+lv*.12*(k%3);Sp(g,.14+ (k%3)*.03,k%2?P.leaf:P.leaf2,Math.cos(a)*d,.1+(k%3)*.06,Math.sin(a)*d).scale.set(1.3,.5,1)}if(lv>2)Sp(g,.2,P.accent,0,.4,0).scale.set(1.2,.4,1.2)},
+ firepit(g,P,lv){Cy(g,.5+lv*.08,.55+lv*.08,.16,P.stone,0,0,0,16);if(lv>1)for(let k=0;k<5;k++){const a=k/5*6.283;Cy(g,.05,.05,.5,P.wood,Math.cos(a)*.3,.1,Math.sin(a)*.3,6).rotation.z=Math.cos(a)*.5}if(lv>2){const f=K(g,.22,.55,P.accent,0,.15,0,8,{emissive:P.glow,emissiveIntensity:.9});Sp(g,.12,P.glow,0,.45,0,{emissive:P.glow,emissiveIntensity:.9})}},
+ well(g,P,lv){Cy(g,.55,.6,.6+lv*.1,P.stone,0,0,0,14);if(lv>1){Cy(g,.05,.05,.7,P.wood,-.5,.6,0,6);Cy(g,.05,.05,.7,P.wood,.5,.6,0,6);B(g,1.2,.08,.7,P.roof,0,1.3,0)}if(lv>2){Cy(g,.06,.06,.4,P.wood,0,.9,0);Sp(g,.1,P.metal,0,.75,.35,{metalness:.5})}},
+ tent(g,P,lv){const s=.7+lv*.35;const t=put(g,new T.ConeGeometry(s,s*1.2,8),mat(P.accent));t.position.y=s*.6;t.rotation.z=.2;Cy(g,s,.95*s,.08,P.sand,0,0,0,12);if(lv>1)B(g,.18,.4,.05,P.wood,0,0,s*.9);if(lv>2){Sp(g,.12,P.metal,s,0,s*.6,{metalness:.4});Cy(g,.04,.04,1.1,P.wood,-s,0,0,6);B(g,.3,.2,.02,P.glow,-s,1.0,0)}},
+ cactus(g,P,lv){Cy(g,.2,.24,.9+lv*.4,P.leaf,0,0,0,10);if(lv>1){Cy(g,.11,.12,.45,P.leaf,-.35,.4,0,8).rotation.z=.5;Cy(g,.1,.11,.35,P.leaf,.3,.55,0,8).rotation.z=-.5}if(lv>2){for(let k=0;k<4;k++){const a=k*1.6;Sp(g,.09,P.accent,Math.cos(a)*.2,.9+k*.05,Math.sin(a)*.2,{emissive:P.accent,emissiveIntensity:.3})}Cy(g,.3,.34,.1,P.sand,0,0,0,12)}},
+ snowman(g,P,lv){Sp(g,.45,P.wall,0,.45,0);if(lv>1)Sp(g,.32,P.wall,0,1.05,0);if(lv>2){Sp(g,.2,P.wall,0,1.5,0);[-1,1].forEach(k=>{Cy(g,.03,.03,.5,P.wood,k*.45,1.0,0,6).rotation.z=k*1.1;Sp(g,.05,"#241d17",k*.07,1.55,.17)});K(g,.16,.3,P.accent,0,1.68,0,8);for(let k=0;k<3;k++)Sp(g,.05,"#241d17",0,1.0-k*.2,.3)}},
+ icelake(g,P,lv){const r=1.0+lv*.55;Cy(g,r,r,.1,P.water,0,-.02,0,28,{roughness:.1,emissive:"#7fd8ea",emissiveIntensity:.4});if(lv>1)for(let k=0;k<3;k++){const a=k*2.2;const s=put(g,new T.OctahedronGeometry(.16),mat(P.wall,{roughness:.3}));s.position.set(Math.cos(a)*r*.5,.1,Math.sin(a)*r*.5)}if(lv>2){Cy(g,.2,.2,.5,P.wood,r*.4,.05,-r*.3,8);K(g,.3,.5,P.leaf,r*.4,.5,-r*.3,8)}},
+ aurora(g,P,lv){const h=1.2+lv*.5;Cy(g,.08,.1,h,P.metal,0,0,0,8);Sp(g,.2,P.glow,0,h+.15,0,{emissive:P.glow,emissiveIntensity:.9});if(lv>1)for(let k=0;k<3;k++){const a=new T.Mesh(new T.TorusGeometry(.5+k*.2,.05,8,16,2.1),mat(["#6fe39a","#4a7de0","#c17de0"][k],{emissive:["#6fe39a","#4a7de0","#c17de0"][k],emissiveIntensity:.8}));a.position.set(0,h*.6+k*.25,-.4);a.rotation.y=.4;g.add(a)}if(lv>2){Cy(g,.06,.06,.8,P.metal,-.7,0,.3,6);Sp(g,.14,P.glow,-.7,.9,.3,{emissive:P.glow,emissiveIntensity:.9})}},
+ waterfall(g,P,lv){const h=1+lv*.6;for(let k=0;k<3;k++)Sp(g,.5+lv*.15,P.stone,(k-1)*.7,.2,h*.35).scale.set(1,.7,1);if(lv>1)B(g,.5,h*.8,.06,P.water,0,0,-h*.3,{emissive:"#7fd8ea",emissiveIntensity:.5});Cy(g,.8+lv*.2,.9+lv*.2,.14,P.water,0,-.05,h*.45,22,{roughness:.1,emissive:"#2a7fa8",emissiveIntensity:.25});if(lv>2){Cy(g,.08,.08,.5,P.wood,-1,.5,h*.2,6);K(g,.3,.5,P.leaf,-1,.9,h*.2,8)}},
+ bridge(g,P,lv){const l=1.2+lv*.7;B(g,l,.1,.55,P.wood,0,.35,0);for(let k=0;k<5;k++)Cy(g,.05,.05,.45,P.wood,-l/2+k*l/4,0,0,6);if(lv>1)for(let s=-1;s<2;s+=2){Cy(g,.05,.05,.55,P.wood,-l/2,.45,s*.26,6);Cy(g,.05,.05,.55,P.wood,l/2,.45,s*.26,6);B(g,l,.06,.05,P.wood,0,.9,s*.26)}if(lv>2){Cy(g,.5,.55,.16,P.water,0,-.02,0,20);for(let k=0;k<3;k++)B(g,.1,.04,.4,P.leaf2,-l/3+k*l/3,.42,0)}},
+ boat(g,P,lv){const h=put(g,new T.CylinderGeometry(.45*lv+.3,.3,.3,10,1,false,0,3.14),mat(P.wood));h.rotation.y=Math.PI/2;h.scale.set(1.4,.7,1);if(lv>1){Cy(g,.05,.05,1.0,P.wood,0,.3,0,6);const s=put(g,new T.BoxGeometry(.02,.7,.5),mat(P.wall));s.position.set(0,.85,.14)}if(lv>2){B(g,.7,.06,.4,P.wood,0,.05,0);Sp(g,.12,P.accent,.3,.15,0);Cy(g,.1,.1,.2,P.metal,-.3,.1,0,8,{metalness:.4})}},
+ rainbow(g,P,lv){const cols=["#e5484d","#f2b34a","#58b368","#4a7de0","#9b6bd6"];for(let k=0;k<clamp(lv+2,2,5);k++){const a=new T.Mesh(new T.TorusGeometry(1.1-k*.11,.07,8,22,3.14),mat(cols[k],{emissive:cols[k],emissiveIntensity:.35}));a.position.y=.05;g.add(a)}if(lv>2){Sp(g,.2,P.wall,-1.1,.1,0);Sp(g,.2,P.wall,1.1,.1,0)}},
+ balloon(g,P,lv){const s=Sp(g,.45+lv*.1,P.accent,0,1.2+lv*.5,0);s.scale.set(1,1.2,1);if(lv>1){for(let k=0;k<3;k++)B(g,.5,.06,.06,k%2?P.wall:P.leaf2,0,1.0+k*.45,0);Cy(g,.02,.02,.8,P.wood,0,.5,0,6);B(g,.35,.2,.35,P.wood,0,.1,0)}if(lv>2){const c=new T.Mesh(new T.TorusGeometry(.5,.05,8,14),mat(P.metal,{metalness:.5}));c.rotation.x=Math.PI/2;c.position.y=1.35;g.add(c)}},
+ windcloud(g,P,lv){for(let k=0;k<2+lv;k++)Sp(g,.35,P.wall,(k-(1+lv)/2)*.45,.8+lv*.25,(k%2?.2:-.2)).scale.set(1.3,.8,1);Cy(g,.1,.12,1.0+lv*.4,P.wall,0,0,0,10);if(lv>1)for(let k=0;k<4;k++){const a=k/4*6.283;B(g,.5,.05,.08,P.roof,Math.cos(a)*.45,.9+lv*.4,Math.sin(a)*.45).rotation.y=-a}if(lv>2){Cy(g,.06,.06,.2,P.metal,0,1.5+lv*.4,0,6)}},
+ seaweed(g,P,lv){for(let k=0;k<2+lv*2;k++){const a=k*1.9,d=.2+(k%3)*.3;const s=Cy(g,.05,.09,.5+lv*.35,k%2?P.leaf:P.leaf2,Math.cos(a)*d,0,Math.sin(a)*d,7);s.rotation.z=Math.cos(a)*.25;s.rotation.x=-Math.sin(a)*.25}if(lv>2){Cy(g,.9,1,.1,P.water,0,-.02,0,20,{roughness:.15});Sp(g,.1,P.accent,.4,.35,.2,{emissive:P.accent,emissiveIntensity:.5})}},
+ school(g,P,lv){for(let k=0;k<2+lv*2;k++){const a=k/ (2+lv*2)*6.283,d=.5+lv*.25;const b=Sp(g,.11,k%2?P.metal:P.accent,Math.cos(a)*d,.25+Math.sin(k)*.1,Math.sin(a)*d);b.scale.set(1,.8,1.5);b.rotation.y=-a;if(lv>2)B(g,.05,.03,.12,P.wall,Math.cos(a)*d-.14,.26,Math.sin(a)*d)}if(lv>1)Cy(g,.75,.8,.08,P.water,0,.02,0,20,{roughness:.1})},
+ chest(g,P,lv){B(g,.8,.45,.55,P.wood,0,0,0);K(g,.42,.3,.55,P.metal,0,.45,0,10).rotation.y=Math.PI/2;if(lv>1){B(g,.85,.06,.06,P.metal,0,.4,0);Sp(g,.07,P.accent,0,.3,.29,{emissive:P.accent,emissiveIntensity:.5})}if(lv>2){for(let k=0;k<5;k++)Sp(g,.08,P.metal,(k-2)*.15,.55,(k%2?-.1:.1),{emissive:"#ffe9a8",emissiveIntensity:.7});Cy(g,.3,.35,.1,P.stone,0,0,.5,10)}},
+ glowshroom(g,P,lv){for(let k=0;k<1+lv;k++){const a=k*2.3,d=k?.4:0,x=Math.cos(a)*d,z=Math.sin(a)*d,h=.3+k*.12;Cy(g,.08,.1,h,P.wall,x,0,z,8);Sp(g,.22+k*.05,P.leaf2,x,h, z,{emissive:P.glow,emissiveIntensity:.75}).scale.set(1,.6,1)}if(lv>2)for(let k=0;k<4;k++)Sp(g,.05,P.glow,(k-1.5)*.3,.7,(k%2?.3:-.3),{emissive:P.glow,emissiveIntensity:1})},
+ starpond(g,P,lv){const h=.8+lv*.3;Cy(g,.1,.14,h,P.wood,0,0,0,8);B(g,.5,.06,.06,P.wood,0,h,.1);if(lv>1){Sp(g,.16,P.glow,0,h+.1,.1,{emissive:P.glow,emissiveIntensity:.9});K(g,.24,.3,P.roof,0,h+.35,.1,6)}if(lv>2){Cy(g,.5,.55,.1,P.stone,0,0,.55,14);Sp(g,.1,P.glow,-.4,1.0,-.3,{emissive:P.glow,emissiveIntensity:.9});Sp(g,.08,P.glow,.5,.85,-.5,{emissive:P.glow,emissiveIntensity:.9})}},
+ observatory(g,P,lv){const h=1+lv*.5;Cy(g,.5,.6,h,P.stone,0,0,0,14);if(lv>1){const d=put(g,new T.SphereGeometry(.55,14,10,0,6.283,0,1.57),mat(P.wall));d.position.y=h;B(g,.14,.14,.6,P.metal,0,h+.2,.3).rotation.x=-.4}if(lv>2){Cy(g,.62,.62,.08,P.metal,0,h+.6,0,14);for(let k=0;k<4;k++){const a=k/4*6.283;Cy(g,.06,.06,.4,P.metal,Math.cos(a)*.5,h+.8,Math.sin(a)*.5,6)}Sp(g,.1,P.glow,0,h+1.1,0,{emissive:P.glow,emissiveIntensity:.8})}}
+};
+/* ---- dựng thú từ bộ tham số giống ---- */
+function petMesh(b,fl){
+ const g=new T.Group(),u=g.userData,s=b.size,eye=[],leg=[];
+ Sp(g,.3*s,b.body,0,.3*s,-.04*s).scale.set(1.3,1.0,.92);
+ Sp(g,.2*s,b.white,0,.26*s,.16*s).scale.set(1.05,.85,.6);
+ const head=Sp(g,.18*s,b.body,0,.46*s,.22*s);u.head=head;
+ Sp(g,.075*s*(1+b.muzzle),b.white,0,.42*s,.36*s).scale.set(.95,.75,1+b.muzzle*1.3);
+ Sp(g,.02*s,"#241d17",-.07*s,.49*s,.36*s);eye.push(Sp(g,.02*s,"#241d17",.07*s,.49*s,.36*s),Sp(g,.02*s,"#241d17",-.07*s,.49*s,.36*s));
+ Sp(g,.016*s,"#e0607a",0,.435*s,.4*s);
+ [-1,1].forEach(k=>{
+  if(b.ear==="sharp")K(g,.055*s,.16*s,b.dark,k*.1*s,.56*s,.18*s,6);
+  else if(b.ear==="up"){const e=B(g,.05*s,.17*s,.035*s,b.dark,k*.11*s,.55*s,.16*s);e.rotation.z=k*.25}
+  else{const e=Sp(g,.055*s,b.dark,k*.15*s,.5*s,.14*s);e.scale.set(.45,1.6,.5);e.rotation.z=k*.6}});
+ if(b.tail==="long"){const t=Cy(g,.028*s,.05*s,.36*s,b.body,0,.3*s,-.34*s,8);t.rotation.x=-1.0;u.tail=t}
+ else if(b.tail==="curl"){const t=new T.Mesh(new T.TorusGeometry(.1*s,.032*s,8,14),mat(b.dark));t.position.set(0,.38*s,-.3*s);t.rotation.x=1;g.add(t);u.tail=t}
+ else{const t=Sp(g,.11*s,b.body,0,.36*s,-.32*s);t.scale.set(1,1.1,1);u.tail=t}
+ [[-.13,.16],[.13,.16],[-.13,-.2],[.13,-.2]].forEach(p=>{const lg=new T.Group();lg.position.set(p[0]*s,.28*s,p[1]*s);Cy(lg,.032*s,.026*s,.28*s,b.dark,0,-.28*s,0,7);g.add(lg);leg.push(lg)});
+ u.leg=leg;u.eye=eye;
+ if(b.pat==="stripes")for(let k=0;k<3;k++)B(g,.055*s,.03*s,.2*s,b.dark,0,.45*s,(-.02-k*.11)*s);
+ if(b.pat==="spots")[[-.1,.06],[.09,-.05],[0,-.2]].forEach(p=>Sp(g,.045*s,b.dark,p[0]*s,.34*s,p[1]*s).scale.set(1,.4,1));
+ if(b.pat==="patch"){Sp(g,.14*s,b.dark,-.1*s,.32*s,.02*s).scale.set(1,1,.6);Sp(g,.09*s,b.white,.12*s,.2*s,.12*s).scale.set(1,.9,.7)}
+ if(b.pat==="points"){K(g,.06*s,.15*s,b.dark,-.11*s,.56*s,.18*s,6);K(g,.06*s,.15*s,b.dark,.11*s,.56*s,.18*s,6);Sp(g,.07*s,b.dark,0,.44*s,.34*s);Cy(g,.03*s,.04*s,.3*s,b.dark,0,.3*s,-.34*s,8)}
+ if(b.pat==="curl")for(let k=0;k<5;k++)Sp(g,.11*s,b.body,((k%3)-1)*.14*s,.3*s+((k>2)?.12:0)*s,(k%2?.14:-.14)*s);
+ if(b.pat==="glow"){u.glow=[];for(let k=0;k<4;k++){const a=k*1.6;u.glow.push(Sp(g,.038*s,b.white,Math.cos(a)*.16*s,.36*s,Math.sin(a)*.16*s,{emissive:"#fff6c8",emissiveIntensity:.9}))}}
+ if(fl>=3){const c=new T.Mesh(new T.TorusGeometry(.13*s,.022*s,8,16),mat("#e5484d"));c.position.set(0,.33*s,.19*s);c.rotation.x=1.5;g.add(c)}
+ if(fl>=5){[-1,1].forEach(k=>{const w=K(g,.05*s,.09*s,"#f2b34a",k*.1*s,.62*s,.1*s,6);w.rotation.z=k*1.57});Sp(g,.03*s,"#e5484d",0,.62*s,.1*s)}
+ if(fl>=7)K(g,.1*s,.16*s,"#4a7de0",0,.66*s,.22*s,8);
+ g.scale.setScalar(.62+.42*b.size/.7);
+ return g;
+}
+/* ---- cảnh nền ---- */
+const cv=$("cv"),view=$("view");
+const stage=D3.stage({canvas:cv,view,shadow:16,far:70,camFar:240,water:400,wy:-1.4});
+const {renderer,scene,cam,hemi,sun,pool:water}=stage;
+const world=new T.Group();scene.add(world);
+const amb=new T.Group();scene.add(amb);
+const petRoot=new T.Group();scene.add(petRoot);
+const LB=D3.labels($("labs"),view),mkLab=LB.mk;
+const TODS=[{sky:"#cfe9ff",sun:1.0,hemi:.85},{sky:"#bfe3f5",sun:1.05,hemi:.9},{sky:"#ffb88c",sun:.8,hemi:.62},{sky:"#101a2e",sun:.32,hemi:.3}];
+const jit=(geo,L,k)=>{const p=geo.attributes.position;for(let i=0;i<p.count;i++){const x=p.getX(i),z=p.getZ(i),y=p.getY(i),r=Math.hypot(x,z);if(r<.2)continue;const a=Math.atan2(z,x),f=k*edgeOf(L,a)/r;p.setX(i,x*f);p.setZ(i,z*f)}geo.computeVertexNormals();return geo};
+function clearGroup(g){
+ D3.disposeGroup(g);
+ if(g===world){SLOT.length=0;LB.clear();bowl.g=null;ball.g=null}
+ if(g===amb)AMBP.length=0;
+}
+function clearPets(){for(const a of AGENTS){a.g.traverse(o=>{if(o.geometry)o.geometry.dispose()});petRoot.remove(a.g);a.lab.remove()}AGENTS.length=0;syncAgents.sig=""}
+const SLOT=[],AMBP=[],AGENTS=[];
+function addSlot(i,P,L){
+ const s=L.slots[i],g=new T.Group();g.position.set(s.x,0,s.z);g.userData.slot=i;world.add(g);
+ B(g,1.5,.05,1.5,i===0?P.stone:P.sand,0,-.02,0);
+ const rm=new T.MeshBasicMaterial({color:"#46d37f",transparent:true,opacity:.85});
+ const ring=new T.Mesh(new T.RingGeometry(.85,.97,32),rm);ring.rotation.x=-Math.PI/2;ring.position.y=.06;g.add(ring);
+ const slot=new T.Group();slot.position.y=.02;g.add(slot);
+ const lab=mkLab();
+ const rec={i,g,slot,ring,rm,lab,model:null,pos:new T.Vector3(s.x,2.4,s.z)};
+ SLOT.push(rec);return rec;
+}
+function setLevel(rec,lv,anim){
+ const i=rec.i,P=rec.P,L=rec.L;rec.lv=lv;
+ if(rec.model){rec.slot.remove(rec.model);rec.model=null}
+ if(lv<=0){rec.lab.textContent=`${slotIcon(i)} ${slotName(i)} · đất trống`;return}
+ const g=new T.Group();
+ if(i===0)HB[THEMES[L.t].h](g,P,lv);
+ else if(i===1)TB[THEMES[L.t].t](g,P,lv);
+ else FN[THEMES[L.t].fk[i-2]](g,P,lv);
+ rec.slot.add(g);rec.model=g;rec.lab.textContent=`${slotIcon(i)} ${slotName(i)} · C${lv}${lv>=3?" ✓":""}`;
+ if(anim&&!RM)pops.push(rec.slot);else rec.slot.scale.setScalar(1);
+}
+let L3=null,P3=null;
+function buildWorld(){
+ const L=genIsland(S.cur),TH=THEMES[L.t];
+ P3=Object.assign({},shiftPal(TH.c,L.hue,L.lit),{sea:TH.c.sea,sky:TH.c.sky});
+ const tod=TODS[L.tod];
+ const skyC=new T.Color(TH.c.sky).lerp(new T.Color(tod.sky),.6);
+ scene.background=skyC;scene.fog=new T.Fog(skyC,L.r*3.4,L.r*9);
+ hemi.color.copy(skyC);hemi.groundColor.set(P3.ground);hemi.intensity=S.eco?.55:tod.hemi;
+ sun.intensity=tod.sun;sun.color.set(L.tod===2?"#ffb27a":L.tod===3?"#a9bcff":"#fff1d2");
+ sun.castShadow=!S.eco;water.material.color.set(P3.sea);view.style.background="#"+skyC.getHexString();
+ clearGroup(world);clearGroup(amb);clearPets();
+ const sand=put(world,jit(new T.CylinderGeometry(L.r,L.r,1.3,52),L,1.03),P3.sand,0,-.75,0);
+ const grass=put(world,jit(new T.CylinderGeometry(L.r,L.r,1.25,52),L,1),P3.ground,0,-.6,0);
+ grass.receiveShadow=true;sand.receiveShadow=true;
+ for(let i=0;i<5;i++){const r=addSlot(i,P3,L);r.P=P3;r.L=L;setLevel(r,S.islands[S.cur][i],false)}
+ const dn=S.eco?Math.ceil(L.decor.length/2):L.decor.length;
+ for(let k=0;k<dn;k++){
+  const d=L.decor[k],x=d.a,dd=Math.min(d.d,L.r-1),px=dd*Math.cos(x),pz=dd*Math.sin(x);
+  if(!walkable(L,px,pz,.1))continue;
+  if(d.k==="rock")put(world,new T.DodecahedronGeometry(.22*d.s),P3.stone,px,.12*d.s,pz);
+  else if(d.k==="bush"){Sp(world,.26*d.s,P3.leaf,px,.16*d.s,pz).scale.set(1.2,.8,1.2)}
+  else{Cy(world,.02,.02,.2*d.s,P3.leaf2,px,0,pz,5);Sp(world,.09*d.s,k%2?P3.accent:P3.glow,px,.2*d.s,pz)}
+ }
+ if(L.tod===3){const SR=rand(hash("star-"+L.n));for(let k=0;k<40;k++){const a=SR()*6.283,d=L.r+6+SR()*22;put(world,new T.SphereGeometry(.18,6,5),"#ffffff",Math.cos(a)*d,6+SR()*14,Math.sin(a)*d,{emissive:"#ffffff",emissiveIntensity:1})}}
+ buildAmbience(TH.amb,P3,L);
+ L3=L;syncAgents(true);
+}
+function buildAmbience(kind,P,L){
+ clearGroup(amb);if(RM||S.eco)return;
+ const col={petals:P.leaf,leaves:P.leaf2,sand:P.sand,snow:"#ffffff",waves:P.wall,clouds:"#ffffff",bubbles:P.glow,fireflies:P.glow}[kind]||P.leaf;
+ const n={petals:70,leaves:60,sand:40,snow:70,waves:14,clouds:9,bubbles:50,fireflies:44}[kind]||40;
+ for(let k=0;k<n;k++){
+  const a=Math.random()*6.283,d=Math.random()*L.r*1.1;
+  const m=kind==="clouds"?Sp(amb,.7+Math.random()*.6,"#ffffff",(d-L.r)*1.4,7+Math.random()*3,Math.sin(a)*d*1.3,{transparent:true,opacity:.85}):
+   put(amb,new T.BoxGeometry(.09,.09,.09),mat(col,kind==="fireflies"||kind==="bubbles"?{emissive:col,emissiveIntensity:.9}:null),Math.cos(a)*d,1+Math.random()*4,Math.sin(a)*d);
+  if(kind==="waves"){m.scale.set(1.6,.12,.5);m.position.y=.2}
+  m.userData.v={y:-(kind==="bubbles"?.7:kind==="fireflies"?.25:.9)-Math.random()*.5,x:(Math.random()-.5)*.3,z:(Math.random()-.5)*.3,ph:Math.random()*6.283,kind};
+  AMBP.push(m);
+ }
+}
+/* ---- thú trên đảo ---- */
+const rndWalk=rand(hash("pet-rng"));
+function bowl(){if(!bowl.g){bowl.g=Sp(world,.16,"#e5484d",0,.08,0);bowl.g.visible=false}return bowl.g}
+function ball(){if(!ball.g){ball.g=Sp(world,.1,"#4a7de0",0,20,0,{emissive:"#2a5a9c",emissiveIntensity:.3});ball.g.visible=false}return ball.g}
+function newAgent(p,idx){
+ const b=BREEDS.find(x=>x.k===p.breed),g=petMesh(b,friendLv(p.xp));
+ const sp=pickSpot(L3,rndWalk,0,0);
+ g.position.set(sp.x,0,sp.z);g.userData.pet=p.id;petRoot.add(g);
+ const lab=mkLab();
+ const a={p,b,g,lab,x:sp.x,z:sp.z,yaw:0,st:"wander",tgt:null,wt:0,timer:0,speed:b.speed,hidden:false,seat:idx,hidCheck:0};
+ AGENTS.push(a);return a;
+}
+function syncAgents(rebuild){
+ const ids=S.pets.slice(0,S.seen).map(p=>p.id).join("-");
+ if(!rebuild&&ids===syncAgents.sig)return;
+ syncAgents.sig=ids;
+ for(const a of AGENTS){petRoot.remove(a.g);a.lab.remove();a.g.traverse(o=>{if(o.geometry)o.geometry.dispose()})}
+ AGENTS.length=0;
+ S.pets.slice(0,S.seen).forEach((p,i)=>newAgent(p,i));
+}
+/* đi thẳng có né vật chắn: thử hướng đích rồi trượt tiếp tuyến hai bên;
+   kẹt 1,5 giây thì coi như không tới được (gọi lại để chọn đích mới) */
+function moveTo(a,tx,tz,dt){
+ const dx=tx-a.x,dz=tz-a.z,d=Math.hypot(dx,dz);
+ if(d<.12)return true;
+ const v=Math.min(a.speed*dt,d),ux=dx/d,uz=dz/d;
+ for(const ang of[0,.85,-.85,1.7,-1.7]){
+  const c=Math.cos(ang),s=Math.sin(ang),rx=ux*c-uz*s,rz=ux*s+uz*c;
+  if(walkable(L3,a.x+rx*v,a.z+rz*v,.25)){a.x+=rx*v;a.z+=rz*v;a.yaw=Math.atan2(rx,rz);a.stuck=0;
+   return Math.hypot(tx-a.x,tz-a.z)<.14}}
+ a.stuck=(a.stuck||0)+dt;
+ if(a.stuck>1.5){a.stuck=0;if(!walkable(L3,a.x,a.z,.05)){const q=pickSpot(L3,rndWalk,0,0);a.x=q.x;a.z=q.z}return true}
+ return false;
+}
+function houseSpot(L){const h=L.slots[0],a=Math.atan2(h.z,h.x)+2.1;return{x:h.x+Math.cos(a)*(h.ob+.5),z:h.z+Math.sin(a)*(h.ob+.5)}}
+function treeSpot(L){const t=L.slots[1],a=Math.atan2(t.z,t.x)+1.2;return{x:t.x+Math.cos(a)*(t.ob+.4),z:t.z+Math.sin(a)*(t.ob+.4)}}
+function stepAgents(dt,t){
+ for(const a of AGENTS){
+  const p=a.p,night=L3&&L3.tod===3,tired=p.sat<45||p.mood<45;
+  if(!a.hidCheck||((t-a.hidCheck)>3)){a.hidCheck=t;
+   const wantRest=(night||tired)&&a.st!=="eat"&&a.st!=="play";
+   if(wantRest&&a.st!=="rest"){a.st="rest";a.tgt=night?houseSpot(L3):treeSpot(L3);a.wt=0}
+   if(!wantRest&&a.st==="rest"){a.st="wander";a.tgt=pickSpot(L3,rndWalk,a.x,a.z);a.hidden=false;a.g.visible=true}
+  }
+  a.lab.textContent=`${a.b.sp} ${a.p.name}${a.st==="rest"?" 💤":a.p.sat<45?" 🥣":a.p.mood<45?" 😴":""}${friendLv(a.p.xp)>=3?" 🎀":""}`;
+  if(RM){a.g.position.set(a.x,0,a.z);a.g.rotation.y=a.yaw;a.g.visible=a.st!=="rest";continue}
+  switch(a.st){
+   case"wander":
+    if(a.wt>0){a.wt-=dt;break}
+    if(!a.tgt)a.tgt=pickSpot(L3,rndWalk,a.x,a.z);
+    if(moveTo(a,a.tgt.x,a.tgt.z,dt)){a.tgt=null;a.wt=1+rndWalk()*2.5}
+    break;
+   case"follow":
+    if(a.tgt&&moveTo(a,a.tgt.x,a.tgt.z,dt)){a.tgt=null;a.wt=6;a.st="wait"}
+    break;
+   case"wait":
+    a.wt-=dt;if(a.wt<=0){a.st="wander";a.tgt=pickSpot(L3,rndWalk,a.x,a.z)}
+    break;
+   case"rest":
+    if(a.tgt&&moveTo(a,a.tgt.x,a.tgt.z,dt)){a.tgt=null;a.hidden=L3.tod===3;a.g.visible=!a.hidden}
+    break;
+   case"eat":
+    if(a.tgt&&moveTo(a,a.tgt.x,a.tgt.z,dt)){a.timer+=dt;if(a.timer>1.6){a.timer=0;a.st="wander";a.tgt=null;a.wt=1;bowl().visible=false}}
+    break;
+   case"play":
+    if(a.tgt&&moveTo(a,a.tgt.x,a.tgt.z,dt)){a.st="wander";a.tgt=null;a.wt=1;ball().visible=false}
+    break;
+   case"react":
+    a.timer+=dt;if(a.timer>.7){a.timer=0;a.st="wander"}
+  }
+  a.g.position.set(a.x,0,a.z);
+  let dy=0;
+  if(a.st==="wander"||a.st==="follow"||a.st==="play"||a.st==="rest")dy=Math.abs(Math.sin(t*7*a.speed))*.04;
+  if(a.st==="react")dy=Math.max(0,Math.sin(a.timer/0.7*Math.PI))*.35;
+  a.g.position.y=dy+(a.st==="wait"?.02:0);
+  a.g.rotation.y=a.yaw;
+  const u=a.g.userData,moving=dy>.005;
+  (u.leg||[]).forEach((l,k)=>l.rotation.x=moving?Math.sin(t*9*a.speed+(k>1?Math.PI:0))*.5:0);
+  if(u.tail)u.tail.rotation.y=moving?Math.sin(t*8*a.speed)*.5:Math.sin(t*1.6)*.12;
+  if(u.head)u.head.rotation.z=Math.sin(t*1.4+a.seat)*.05;
+  (u.eye||[]).forEach(e=>e.scale.y=(a.st==="rest"||a.p.sat<40)?.15:1);
+  (u.glow||[]).forEach((q,k)=>q.material.emissiveIntensity=.6+.4*Math.sin(t*3+k));
+ }
+}
+/* ---- camera + chuột ---- */
+/* hit(ray) → {slot} ô đất | {pet} con thú | {ground} mặt đất */
+function hit(ray){
+ const h=ray.intersectObjects(world.children,true)[0],hp=ray.intersectObjects(petRoot.children,true)[0];
+ if(hp&&(!h||hp.distance<h.distance)){let o=hp.object;while(o&&!o.userData.pet)o=o.parent;if(o)return{pet:o.userData.pet}}
+ if(h){let o=h.object;while(o&&o.userData.slot===undefined)o=o.parent;if(o&&o.userData.slot!==undefined)return{slot:o.userData.slot};return{ground:true}}
+ return null}
+function callPets(){
+ if(!AGENTS.length){msg("Chưa có thú nào — vào 🛒 Cửa hàng thú nhận nuôi đã.");return}
+ AGENTS.slice(0,2).forEach(a=>{a.st="follow";a.tgt=pickSpot(L3,rndWalk,a.x,a.z)});
+ msg("📣 Bạn gọi — thú chạy tới rồi ngồi chờ (không có thưởng).")}
+const orbit=D3.orbit({cv,view,cam,tgt:new T.Vector3(0,.9,0),home:{th:.8,ph:1.02,r:22},min:10,max:40,
+ onHover:ray=>{const o=hit(ray);return o&&o.slot!==undefined?o:null},
+ onTap:ray=>{const o=hit(ray);if(!o)return;
+  if(o.slot!==undefined)doUpgrade(o.slot);
+  else if(o.pet!==undefined){const a=AGENTS.find(x=>x.p.id===o.pet);if(a){a.st="react";a.timer=0;msg(`🐾 ${a.p.name} nhảy lên chào. Bấm thú không cho xu — phần thưởng chỉ đến từ học và chơi.`)}}
+  else if(o.ground)callPets()}});orbit.buttons(3);
+$("eco").onclick=()=>{S.eco=!S.eco;save();renderer.shadowMap.enabled=!S.eco;renderer.setPixelRatio(S.eco?1:Math.min(2,devicePixelRatio));buildWorld();render();msg(S.eco?"🪫 Chế độ tiết kiệm: tắt bóng đổ, tắt hiệu ứng nền (cánh hoa/tuyết/bong bóng…) và giảm cây bụi. Đảo, thú, xu giữ nguyên.":"Đã bật lại đầy đủ hình ảnh.")};
+/* ---- vòng lặp ---- */
+const pops=D3.pops(),sparks=D3.sparks(scene),vp=new T.Vector3();
+let last=performance.now();
+function loop(now){
+ const dt=Math.min(.05,(now-last)/1000),t=now/1000;last=now;
+ orbit.tick();
+ stepAgents(dt,t);
+ pops.step(dt);
+ if(!RM&&!S.eco)for(let k=AMBP.length-1;k>=0;k--){const m=AMBP[k],v=m.userData.v;
+  m.position.y+=v.y*dt;if(m.position.y<.1){const a=Math.random()*6.283,d=Math.random()*L3.r*1.1;m.position.set(Math.cos(a)*d,v.kind==="bubbles"?.1:3+Math.random()*4,Math.sin(a)*d)}
+  m.position.x+=Math.sin(t+v.ph)*dt*.3;m.rotation.y+=dt;m.rotation.x+=dt*.6;
+  if(v.kind==="fireflies")m.material.emissiveIntensity=.4+.6*Math.abs(Math.sin(t*2+v.ph))}
+ for(const s of SLOT){s.lab&&LB.proj(cam,s.lab,s.pos.set(L3.slots[s.i].x,2.3+(s.i===0?.4:.2),L3.slots[s.i].z));
+  if(s.rm){const lv=S.islands[S.cur][s.i];s.ring.visible=lv<3&&S.coins>=costOf(S.cur,lv);if(!RM)s.rm.opacity=.4+.45*Math.sin(t*4)}}
+ for(const a of AGENTS)LB.proj(cam,a.lab,vp.set(a.x,.95,a.z));
+ sparks.step(dt);
+ renderer.render(scene,cam);requestAnimationFrame(loop);
+}
+VISIT={
+ sync(){const n=S.cur,li=S.islands[S.cur];if(n!==VISIT.cur||li.join()!==VISIT.arr){const changed=n!==VISIT.cur;VISIT.cur=n;VISIT.arr=li.join();if(changed)buildWorld();else li.forEach((lv,i)=>{const r=SLOT[i];if(r&&r.lv!==lv){r.lv=lv;setLevel(r,lv,true)}})}
+  syncAgents(false)},
+ grow(i){const r=SLOT[i];if(r){r.lv=S.islands[S.cur][i];setLevel(r,r.lv,true);burstAt(r.pos)}},
+ celebrate(){if(RM)return;burstAt(new T.Vector3(0,3,0));burstAt(new T.Vector3(3,2.5,3));burstAt(new T.Vector3(-3,2.5,-3))},
+ eat(id,fk){const a=AGENTS.find(x=>x.p.id===id);if(!a)return;const b=bowl();b.visible=true;const h=houseSpot(L3);b.position.set(h.x,.1,h.z);a.st="eat";a.tgt={x:h.x,z:h.z};a.timer=0;FOODS.forEach(f=>f)},
+ play(id){const a=AGENTS.find(x=>x.p.id===id);if(!a)return;const s=pickSpot(L3,rndWalk,a.x,a.z),bl=ball();bl.visible=true;bl.position.set(s.x,.15,s.z);a.st="play";a.tgt=s},
+ react(id){const a=AGENTS.find(x=>x.p.id===id);if(a){a.st="react";a.timer=0}},
+ call(){callPets()}
+};
+function burstAt(v){if(RM||S.eco)return;sparks.at(v,14)}
+buildWorld();VISIT.cur=S.cur;VISIT.arr=S.islands[S.cur].join();
+window.QD={S:()=>S,L:()=>L3,SLOT:()=>SLOT,AG:()=>AGENTS,step:stepAgents,walk:walkable,edge:edgeOf,render,frame:loop,up:doUpgrade,feed,care,adopt,travel,buyFood,earnLesson,earnGame,newDay,costOf,islandCost,selfCheck:()=>{runChecks();return $("chk").textContent}};
+requestAnimationFrame(loop);$("err").hidden=true;
+}catch(e){$("err").hidden=false;console.error(e)}
+render();
+</script>
+</body>
+</html>
